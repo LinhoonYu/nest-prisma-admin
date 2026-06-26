@@ -24,3 +24,5 @@ prisma/*.db-journal
 # os
 .DS_Store
 
+
+/generated/prisma

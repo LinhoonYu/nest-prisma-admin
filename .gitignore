@@ -1,0 +1,26 @@
+# dependencies
+node_modules
+
+# build
+dist
+tsconfig.build.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# logs
+logs
+*.log
+
+# test
+coverage
+
+# prisma
+prisma/*.db
+prisma/*.db-journal
+
+# os
+.DS_Store
+

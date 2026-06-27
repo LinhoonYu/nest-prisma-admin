@@ -1,9 +1,20 @@
-import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { Module } from '@nestjs/common'
+import { ConfigModule } from '@nestjs/config'
+
+import { AppController } from './app.controller'
+import { AppService } from './app.service'
+import { AppConfig, SwaggerConfig } from '~/config'
+import { PrismaModule } from '~/shared/prisma/prisma.module'
 
 @Module({
-  imports: [],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [AppConfig, SwaggerConfig],
+      envFilePath: ['.env.local', '.env'],
+    }),
+    PrismaModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

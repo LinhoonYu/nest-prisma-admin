@@ -1,5 +1,6 @@
 # dependencies
 node_modules
+.pnpm-store
 
 # build
 dist
@@ -25,4 +26,5 @@ prisma/*.db-journal
 .DS_Store
 
 
-/generated/prisma
+/src/generated/prisma
+

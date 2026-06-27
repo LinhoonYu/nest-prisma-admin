@@ -1,13 +1,417 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
-  output   = "../generated/prisma"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider     = "postgresql"
+  relationMode = "prisma"
+}
+
+// SmallInt code conventions:
+// status: 0=disabled, 1=enabled
+// gender: 0=unknown, 1=male, 2=female
+// menu.type: 1=directory, 2=menu, 3=link, 4=iframe
+// permission.type: 1=menu, 2=button, 3=api, 4=action
+// role.data_scope: 1=all, 2=self, 3=self_dept, 4=self_dept_and_children, 5=custom_dept
+// login_type: 1=password, 2=oauth, 3=oidc, 4=sso
+// provider.type: 1=oauth2, 2=oidc, 3=saml, 4=ldap
+// session.status: 1=active, 2=revoked, 3=expired
+// login_logs.status: 0=failed, 1=success
+
+model User {
+  id           BigInt    @id @default(autoincrement())
+  username     String    @db.VarChar(64)
+  nickname     String?   @db.VarChar(64)
+  realName     String?   @map("real_name") @db.VarChar(64)
+  avatar       String?   @db.VarChar(512)
+  email        String?   @db.VarChar(128)
+  phone        String?   @db.VarChar(32)
+  gender       Int       @default(0) @db.SmallInt
+  status       Int       @default(1) @db.SmallInt
+  isSuperAdmin Boolean   @default(false) @map("is_super_admin")
+  deptId       BigInt?   @map("dept_id")
+  remark       String?   @db.VarChar(512)
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  lastLoginIp  String?   @map("last_login_ip") @db.VarChar(64)
+  createdBy    BigInt?   @map("created_by")
+  updatedBy    BigInt?   @map("updated_by")
+  deletedBy    BigInt?   @map("deleted_by")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedId    BigInt    @default(0) @map("deleted_id")
+
+  @@unique([username, deletedId])
+  @@unique([email, deletedId])
+  @@unique([phone, deletedId])
+  @@index([deptId])
+  @@index([deletedId, status, createdAt])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model UserCredential {
+  id                 BigInt    @id @default(autoincrement())
+  userId             BigInt    @unique @map("user_id")
+  passwordHash       String    @map("password_hash") @db.VarChar(255)
+  passwordAlgo       String    @default("bcrypt") @map("password_algo") @db.VarChar(32)
+  passwordVersion    Int       @default(1) @map("password_version")
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  failedAttempts     Int       @default(0) @map("failed_attempts")
+  lockedUntil        DateTime? @map("locked_until") @db.Timestamptz(3)
+  passwordChangedAt  DateTime? @map("password_changed_at") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([lockedUntil])
+  @@map("user_credentials")
+}
+
+model AuthProvider {
+  id                    BigInt   @id @default(autoincrement())
+  code                  String   @db.VarChar(64)
+  name                  String   @db.VarChar(128)
+  type                  Int      @db.SmallInt
+  issuer                String?  @db.VarChar(255)
+  clientId              String?  @map("client_id") @db.VarChar(255)
+  clientSecretEncrypted String?  @map("client_secret_encrypted") @db.Text
+  authorizationUrl      String?  @map("authorization_url") @db.VarChar(512)
+  tokenUrl              String?  @map("token_url") @db.VarChar(512)
+  userinfoUrl           String?  @map("userinfo_url") @db.VarChar(512)
+  jwksUri               String?  @map("jwks_uri") @db.VarChar(512)
+  scopes                String?  @db.VarChar(512)
+  config                Json?    @map("config_json")
+  status                Int      @default(1) @db.SmallInt
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([code])
+  @@index([type])
+  @@index([status])
+  @@map("auth_providers")
+}
+
+model UserIdentity {
+  id               BigInt    @id @default(autoincrement())
+  userId           BigInt    @map("user_id")
+  providerId       BigInt    @map("provider_id")
+  providerSubject  String    @map("provider_subject") @db.VarChar(255)
+  providerUsername String?   @map("provider_username") @db.VarChar(128)
+  providerEmail    String?   @map("provider_email") @db.VarChar(128)
+  providerAvatar   String?   @map("provider_avatar") @db.VarChar(512)
+  rawProfile       Json?     @map("raw_profile_json")
+  linkedAt         DateTime  @default(now()) @map("linked_at") @db.Timestamptz(3)
+  lastLoginAt      DateTime? @map("last_login_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedId        BigInt    @default(0) @map("deleted_id")
+
+  @@unique([providerId, providerSubject, deletedId])
+  @@unique([userId, providerId, deletedId])
+  @@index([userId])
+  @@index([providerId])
+  @@index([deletedId])
+  @@map("user_identities")
+}
+
+model Dept {
+  id           BigInt    @id @default(autoincrement())
+  parentId     BigInt?   @map("parent_id")
+  name         String    @db.VarChar(64)
+  code         String    @db.VarChar(64)
+  sort         Int       @default(0)
+  leaderUserId BigInt?   @map("leader_user_id")
+  phone        String?   @db.VarChar(32)
+  email        String?   @db.VarChar(128)
+  status       Int       @default(1) @db.SmallInt
+  remark       String?   @db.VarChar(512)
+  createdBy    BigInt?   @map("created_by")
+  updatedBy    BigInt?   @map("updated_by")
+  deletedBy    BigInt?   @map("deleted_by")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedId    BigInt    @default(0) @map("deleted_id")
+
+  @@unique([code, deletedId])
+  @@index([parentId, sort])
+  @@index([deletedId, parentId, sort])
+  @@index([deletedId, status])
+  @@index([sort])
+  @@map("depts")
+}
+
+model Role {
+  id        BigInt    @id @default(autoincrement())
+  code      String    @db.VarChar(64)
+  name      String    @db.VarChar(64)
+  sort      Int       @default(0)
+  status    Int       @default(1) @db.SmallInt
+  dataScope Int       @default(2) @map("data_scope") @db.SmallInt
+  isSystem  Boolean   @default(false) @map("is_system")
+  remark    String?   @db.VarChar(512)
+  createdBy BigInt?   @map("created_by")
+  updatedBy BigInt?   @map("updated_by")
+  deletedBy BigInt?   @map("deleted_by")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedId BigInt    @default(0) @map("deleted_id")
+
+  @@unique([code, deletedId])
+  @@index([deletedId, status, sort])
+  @@index([sort])
+  @@map("roles")
+}
+
+model UserRole {
+  id        BigInt   @id @default(autoincrement())
+  userId    BigInt   @map("user_id")
+  roleId    BigInt   @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model Menu {
+  id           BigInt    @id @default(autoincrement())
+  parentId     BigInt?   @map("parent_id")
+  type         Int       @db.SmallInt
+  name         String    @db.VarChar(128)
+  title        String    @db.VarChar(128)
+  path         String?   @db.VarChar(255)
+  component    String?   @db.VarChar(255)
+  redirect     String?   @db.VarChar(255)
+  icon         String?   @db.VarChar(128)
+  sort         Int       @default(0)
+  hidden       Boolean   @default(false)
+  keepAlive    Boolean   @default(false) @map("keep_alive")
+  alwaysShow   Boolean   @default(false) @map("always_show")
+  externalUrl  String?   @map("external_url") @db.VarChar(512)
+  activeMenuId BigInt?   @map("active_menu_id")
+  status       Int       @default(1) @db.SmallInt
+  remark       String?   @db.VarChar(512)
+  createdBy    BigInt?   @map("created_by")
+  updatedBy    BigInt?   @map("updated_by")
+  deletedBy    BigInt?   @map("deleted_by")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedId    BigInt    @default(0) @map("deleted_id")
+
+  @@unique([name, deletedId])
+  @@index([parentId, sort])
+  @@index([activeMenuId])
+  @@index([type])
+  @@index([deletedId, parentId, sort])
+  @@index([deletedId, status, sort])
+  @@index([sort])
+  @@map("menus")
+}
+
+model RoleMenu {
+  id        BigInt   @id @default(autoincrement())
+  roleId    BigInt   @map("role_id")
+  menuId    BigInt   @map("menu_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([roleId, menuId])
+  @@index([menuId])
+  @@map("role_menus")
+}
+
+model Permission {
+  id        BigInt    @id @default(autoincrement())
+  code      String    @db.VarChar(128)
+  name      String    @db.VarChar(128)
+  type      Int       @db.SmallInt
+  module    String?   @db.VarChar(64)
+  action    String?   @db.VarChar(64)
+  menuId    BigInt?   @map("menu_id")
+  method    String?   @db.VarChar(16)
+  path      String?   @db.VarChar(255)
+  sort      Int       @default(0)
+  status    Int       @default(1) @db.SmallInt
+  isSystem  Boolean   @default(false) @map("is_system")
+  remark    String?   @db.VarChar(512)
+  createdBy BigInt?   @map("created_by")
+  updatedBy BigInt?   @map("updated_by")
+  deletedBy BigInt?   @map("deleted_by")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedId BigInt    @default(0) @map("deleted_id")
+
+  @@unique([code, deletedId])
+  @@index([type])
+  @@index([module, action])
+  @@index([menuId])
+  @@index([deletedId, type])
+  @@index([deletedId, status])
+  @@index([deletedId, module, action])
+  @@index([method, path])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           BigInt   @id @default(autoincrement())
+  roleId       BigInt   @map("role_id")
+  permissionId BigInt   @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model RoleDept {
+  id        BigInt   @id @default(autoincrement())
+  roleId    BigInt   @map("role_id")
+  deptId    BigInt   @map("dept_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([roleId, deptId])
+  @@index([deptId])
+  @@map("role_depts")
+}
+
+model DictType {
+  id        BigInt    @id @default(autoincrement())
+  code      String    @db.VarChar(64)
+  name      String    @db.VarChar(64)
+  status    Int       @default(1) @db.SmallInt
+  isSystem  Boolean   @default(false) @map("is_system")
+  remark    String?   @db.VarChar(512)
+  createdBy BigInt?   @map("created_by")
+  updatedBy BigInt?   @map("updated_by")
+  deletedBy BigInt?   @map("deleted_by")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedId BigInt    @default(0) @map("deleted_id")
+
+  @@unique([code, deletedId])
+  @@index([deletedId, status])
+  @@map("dict_types")
+}
+
+model DictItem {
+  id         BigInt    @id @default(autoincrement())
+  dictTypeId BigInt    @map("dict_type_id")
+  label      String    @db.VarChar(128)
+  value      String    @db.VarChar(128)
+  color      String?   @db.VarChar(32)
+  cssClass   String?   @map("css_class") @db.VarChar(128)
+  sort       Int       @default(0)
+  status     Int       @default(1) @db.SmallInt
+  isDefault  Boolean   @default(false) @map("is_default")
+  remark     String?   @db.VarChar(512)
+  createdBy  BigInt?   @map("created_by")
+  updatedBy  BigInt?   @map("updated_by")
+  deletedBy  BigInt?   @map("deleted_by")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
+  deletedId  BigInt    @default(0) @map("deleted_id")
+
+  @@unique([dictTypeId, value, deletedId])
+  @@index([dictTypeId, deletedId, status, sort])
+  @@index([sort])
+  @@map("dict_items")
+}
+
+model AuthSession {
+  id           BigInt    @id @default(autoincrement())
+  userId       BigInt    @map("user_id")
+  loginType    Int       @map("login_type") @db.SmallInt
+  provider     String    @default("local") @db.VarChar(64)
+  ip           String?   @db.VarChar(64)
+  userAgent    String?   @map("user_agent") @db.Text
+  deviceName   String?   @map("device_name") @db.VarChar(128)
+  status       Int       @default(1) @db.SmallInt
+  lastActiveAt DateTime? @map("last_active_at") @db.Timestamptz(3)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz(3)
+  revokeReason String?   @map("revoke_reason") @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@index([lastActiveAt])
+  @@map("auth_sessions")
+}
+
+model RefreshToken {
+  id                BigInt    @id @default(autoincrement())
+  userId            BigInt    @map("user_id")
+  sessionId         BigInt    @map("session_id")
+  tokenHash         String    @unique @map("token_hash") @db.VarChar(255)
+  familyId          BigInt    @map("family_id")
+  parentId          BigInt?   @map("parent_id")
+  expiresAt         DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(3)
+  replacedByTokenId BigInt?   @map("replaced_by_token_id")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId])
+  @@index([sessionId, revokedAt])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model LoginLog {
+  id            BigInt   @id @default(autoincrement())
+  userId        BigInt?  @map("user_id")
+  username      String?  @db.VarChar(128)
+  loginType     Int      @map("login_type") @db.SmallInt
+  provider      String   @default("local") @db.VarChar(64)
+  ip            String?  @db.VarChar(64)
+  location      String?  @db.VarChar(128)
+  userAgent     String?  @map("user_agent") @db.Text
+  browser       String?  @db.VarChar(64)
+  os            String?  @db.VarChar(64)
+  device        String?  @db.VarChar(64)
+  status        Int      @db.SmallInt
+  failureReason String?  @map("failure_reason") @db.VarChar(255)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId, createdAt])
+  @@index([username, createdAt])
+  @@index([status, createdAt])
+  @@index([ip, createdAt])
+  @@index([createdAt])
+  @@map("login_logs")
+}
+
+model OperationLog {
+  id            BigInt   @id @default(autoincrement())
+  userId        BigInt?  @map("user_id")
+  username      String?  @db.VarChar(128)
+  module        String?  @db.VarChar(64)
+  action        String?  @db.VarChar(64)
+  description   String?  @db.VarChar(255)
+  method        String?  @db.VarChar(16)
+  path          String?  @db.VarChar(255)
+  ip            String?  @db.VarChar(64)
+  userAgent     String?  @map("user_agent") @db.Text
+  requestId     String?  @map("request_id") @db.VarChar(64)
+  requestParams Json?    @map("request_params")
+  requestBody   Json?    @map("request_body")
+  statusCode    Int?     @map("status_code")
+  success       Boolean  @default(false)
+  errorMessage  String?  @map("error_message") @db.Text
+  durationMs    Int?     @map("duration_ms")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId, createdAt])
+  @@index([action])
+  @@index([module, action])
+  @@index([success, createdAt])
+  @@index([requestId])
+  @@index([createdAt])
+  @@map("operation_logs")
 }

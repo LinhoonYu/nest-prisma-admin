@@ -12,8 +12,8 @@ datasource db {
 // status: 0=disabled, 1=enabled
 // gender: 0=unknown, 1=male, 2=female
 // menu.type: 1=directory, 2=menu, 3=link, 4=iframe
-// permission.type: 1=menu, 2=button, 3=api, 4=action
-// role.data_scope: 1=all, 2=self, 3=self_dept, 4=self_dept_and_children, 5=custom_dept
+// permission.group: free-form categorization, e.g. "用户管理", "工单管理"
+// user.data_scope: 1=all, 2=self, 3=self_dept, 4=self_dept_and_children, 5=custom_dept
 // login_type: 1=password, 2=oauth, 3=oidc, 4=sso
 // provider.type: 1=oauth2, 2=oidc, 3=saml, 4=ldap
 // session.status: 1=active, 2=revoked, 3=expired
@@ -31,6 +31,7 @@ model User {
   status       Int       @default(1) @db.SmallInt
   isSuperAdmin Boolean   @default(false) @map("is_super_admin")
   deptId       BigInt?   @map("dept_id")
+  dataScope    Int       @default(2) @map("data_scope") @db.SmallInt
   remark       String?   @db.VarChar(512)
   lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
   lastLoginIp  String?   @map("last_login_ip") @db.VarChar(64)
@@ -69,22 +70,15 @@ model UserCredential {
 }
 
 model AuthProvider {
-  id                    BigInt   @id @default(autoincrement())
-  code                  String   @db.VarChar(64)
-  name                  String   @db.VarChar(128)
-  type                  Int      @db.SmallInt
-  issuer                String?  @db.VarChar(255)
-  clientId              String?  @map("client_id") @db.VarChar(255)
-  clientSecretEncrypted String?  @map("client_secret_encrypted") @db.Text
-  authorizationUrl      String?  @map("authorization_url") @db.VarChar(512)
-  tokenUrl              String?  @map("token_url") @db.VarChar(512)
-  userinfoUrl           String?  @map("userinfo_url") @db.VarChar(512)
-  jwksUri               String?  @map("jwks_uri") @db.VarChar(512)
-  scopes                String?  @db.VarChar(512)
-  config                Json?    @map("config_json")
-  status                Int      @default(1) @db.SmallInt
-  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id        BigInt   @id @default(autoincrement())
+  code      String   @db.VarChar(64)
+  name      String   @db.VarChar(128)
+  type      Int      @db.SmallInt
+  issuer    String?  @db.VarChar(255)
+  config    Json?    @map("config_json")
+  status    Int      @default(1) @db.SmallInt
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@unique([code])
   @@index([type])
@@ -147,7 +141,6 @@ model Role {
   name      String    @db.VarChar(64)
   sort      Int       @default(0)
   status    Int       @default(1) @db.SmallInt
-  dataScope Int       @default(2) @map("data_scope") @db.SmallInt
   isSystem  Boolean   @default(false) @map("is_system")
   remark    String?   @db.VarChar(512)
   createdBy BigInt?   @map("created_by")
@@ -168,6 +161,7 @@ model UserRole {
   id        BigInt   @id @default(autoincrement())
   userId    BigInt   @map("user_id")
   roleId    BigInt   @map("role_id")
+  createdBy BigInt?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@unique([userId, roleId])
@@ -186,9 +180,9 @@ model Menu {
   redirect     String?   @db.VarChar(255)
   icon         String?   @db.VarChar(128)
   sort         Int       @default(0)
-  hidden       Boolean   @default(false)
-  keepAlive    Boolean   @default(false) @map("keep_alive")
-  alwaysShow   Boolean   @default(false) @map("always_show")
+  hidden       Int       @default(0) @db.SmallInt
+  keepAlive    Int       @default(0) @map("keep_alive") @db.SmallInt
+  alwaysShow   Int       @default(0) @map("always_show") @db.SmallInt
   externalUrl  String?   @map("external_url") @db.VarChar(512)
   activeMenuId BigInt?   @map("active_menu_id")
   status       Int       @default(1) @db.SmallInt
@@ -215,6 +209,7 @@ model RoleMenu {
   id        BigInt   @id @default(autoincrement())
   roleId    BigInt   @map("role_id")
   menuId    BigInt   @map("menu_id")
+  createdBy BigInt?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@unique([roleId, menuId])
@@ -226,10 +221,7 @@ model Permission {
   id        BigInt    @id @default(autoincrement())
   code      String    @db.VarChar(128)
   name      String    @db.VarChar(128)
-  type      Int       @db.SmallInt
-  module    String?   @db.VarChar(64)
-  action    String?   @db.VarChar(64)
-  menuId    BigInt?   @map("menu_id")
+  group     String?   @db.VarChar(64)
   method    String?   @db.VarChar(16)
   path      String?   @db.VarChar(255)
   sort      Int       @default(0)
@@ -245,13 +237,9 @@ model Permission {
   deletedId BigInt    @default(0) @map("deleted_id")
 
   @@unique([code, deletedId])
-  @@index([type])
-  @@index([module, action])
-  @@index([menuId])
-  @@index([deletedId, type])
-  @@index([deletedId, status])
-  @@index([deletedId, module, action])
   @@index([method, path])
+  @@index([group])
+  @@index([deletedId, status])
   @@map("permissions")
 }
 
@@ -259,6 +247,7 @@ model RolePermission {
   id           BigInt   @id @default(autoincrement())
   roleId       BigInt   @map("role_id")
   permissionId BigInt   @map("permission_id")
+  createdBy    BigInt?  @map("created_by")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@unique([roleId, permissionId])
@@ -266,15 +255,15 @@ model RolePermission {
   @@map("role_permissions")
 }
 
-model RoleDept {
+model UserDataScopeDept {
   id        BigInt   @id @default(autoincrement())
-  roleId    BigInt   @map("role_id")
+  userId    BigInt   @map("user_id")
   deptId    BigInt   @map("dept_id")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  @@unique([roleId, deptId])
+  @@unique([userId, deptId])
   @@index([deptId])
-  @@map("role_depts")
+  @@map("user_data_scope_depts")
 }
 
 model DictType {

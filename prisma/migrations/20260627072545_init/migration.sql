@@ -11,6 +11,7 @@ CREATE TABLE "users" (
     "status" SMALLINT NOT NULL DEFAULT 1,
     "is_super_admin" BOOLEAN NOT NULL DEFAULT false,
     "dept_id" BIGINT,
+    "data_scope" SMALLINT NOT NULL DEFAULT 2,
     "remark" VARCHAR(512),
     "last_login_at" TIMESTAMPTZ(3),
     "last_login_ip" VARCHAR(64),
@@ -49,13 +50,6 @@ CREATE TABLE "auth_providers" (
     "name" VARCHAR(128) NOT NULL,
     "type" SMALLINT NOT NULL,
     "issuer" VARCHAR(255),
-    "client_id" VARCHAR(255),
-    "client_secret_encrypted" TEXT,
-    "authorization_url" VARCHAR(512),
-    "token_url" VARCHAR(512),
-    "userinfo_url" VARCHAR(512),
-    "jwks_uri" VARCHAR(512),
-    "scopes" VARCHAR(512),
     "config_json" JSONB,
     "status" SMALLINT NOT NULL DEFAULT 1,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -112,7 +106,6 @@ CREATE TABLE "roles" (
     "name" VARCHAR(64) NOT NULL,
     "sort" INTEGER NOT NULL DEFAULT 0,
     "status" SMALLINT NOT NULL DEFAULT 1,
-    "data_scope" SMALLINT NOT NULL DEFAULT 2,
     "is_system" BOOLEAN NOT NULL DEFAULT false,
     "remark" VARCHAR(512),
     "created_by" BIGINT,
@@ -131,6 +124,7 @@ CREATE TABLE "user_roles" (
     "id" BIGSERIAL NOT NULL,
     "user_id" BIGINT NOT NULL,
     "role_id" BIGINT NOT NULL,
+    "created_by" BIGINT,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "user_roles_pkey" PRIMARY KEY ("id")
@@ -148,9 +142,9 @@ CREATE TABLE "menus" (
     "redirect" VARCHAR(255),
     "icon" VARCHAR(128),
     "sort" INTEGER NOT NULL DEFAULT 0,
-    "hidden" BOOLEAN NOT NULL DEFAULT false,
-    "keep_alive" BOOLEAN NOT NULL DEFAULT false,
-    "always_show" BOOLEAN NOT NULL DEFAULT false,
+    "hidden" SMALLINT NOT NULL DEFAULT 0,
+    "keep_alive" SMALLINT NOT NULL DEFAULT 0,
+    "always_show" SMALLINT NOT NULL DEFAULT 0,
     "external_url" VARCHAR(512),
     "active_menu_id" BIGINT,
     "status" SMALLINT NOT NULL DEFAULT 1,
@@ -171,6 +165,7 @@ CREATE TABLE "role_menus" (
     "id" BIGSERIAL NOT NULL,
     "role_id" BIGINT NOT NULL,
     "menu_id" BIGINT NOT NULL,
+    "created_by" BIGINT,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "role_menus_pkey" PRIMARY KEY ("id")
@@ -181,10 +176,7 @@ CREATE TABLE "permissions" (
     "id" BIGSERIAL NOT NULL,
     "code" VARCHAR(128) NOT NULL,
     "name" VARCHAR(128) NOT NULL,
-    "type" SMALLINT NOT NULL,
-    "module" VARCHAR(64),
-    "action" VARCHAR(64),
-    "menu_id" BIGINT,
+    "group" VARCHAR(64),
     "method" VARCHAR(16),
     "path" VARCHAR(255),
     "sort" INTEGER NOT NULL DEFAULT 0,
@@ -207,19 +199,20 @@ CREATE TABLE "role_permissions" (
     "id" BIGSERIAL NOT NULL,
     "role_id" BIGINT NOT NULL,
     "permission_id" BIGINT NOT NULL,
+    "created_by" BIGINT,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "role_permissions_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "role_depts" (
+CREATE TABLE "user_data_scope_depts" (
     "id" BIGSERIAL NOT NULL,
-    "role_id" BIGINT NOT NULL,
+    "user_id" BIGINT NOT NULL,
     "dept_id" BIGINT NOT NULL,
     "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "role_depts_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "user_data_scope_depts_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -449,25 +442,13 @@ CREATE INDEX "role_menus_menu_id_idx" ON "role_menus"("menu_id");
 CREATE UNIQUE INDEX "role_menus_role_id_menu_id_key" ON "role_menus"("role_id", "menu_id");
 
 -- CreateIndex
-CREATE INDEX "permissions_type_idx" ON "permissions"("type");
-
--- CreateIndex
-CREATE INDEX "permissions_module_action_idx" ON "permissions"("module", "action");
-
--- CreateIndex
-CREATE INDEX "permissions_menu_id_idx" ON "permissions"("menu_id");
-
--- CreateIndex
-CREATE INDEX "permissions_deleted_id_type_idx" ON "permissions"("deleted_id", "type");
-
--- CreateIndex
 CREATE INDEX "permissions_deleted_id_status_idx" ON "permissions"("deleted_id", "status");
 
 -- CreateIndex
-CREATE INDEX "permissions_deleted_id_module_action_idx" ON "permissions"("deleted_id", "module", "action");
+CREATE INDEX "permissions_method_path_idx" ON "permissions"("method", "path");
 
 -- CreateIndex
-CREATE INDEX "permissions_method_path_idx" ON "permissions"("method", "path");
+CREATE INDEX "permissions_group_idx" ON "permissions"("group");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "permissions_code_deleted_id_key" ON "permissions"("code", "deleted_id");
@@ -479,10 +460,10 @@ CREATE INDEX "role_permissions_permission_id_idx" ON "role_permissions"("permiss
 CREATE UNIQUE INDEX "role_permissions_role_id_permission_id_key" ON "role_permissions"("role_id", "permission_id");
 
 -- CreateIndex
-CREATE INDEX "role_depts_dept_id_idx" ON "role_depts"("dept_id");
+CREATE INDEX "user_data_scope_depts_dept_id_idx" ON "user_data_scope_depts"("dept_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "role_depts_role_id_dept_id_key" ON "role_depts"("role_id", "dept_id");
+CREATE UNIQUE INDEX "user_data_scope_depts_user_id_dept_id_key" ON "user_data_scope_depts"("user_id", "dept_id");
 
 -- CreateIndex
 CREATE INDEX "dict_types_deleted_id_status_idx" ON "dict_types"("deleted_id", "status");

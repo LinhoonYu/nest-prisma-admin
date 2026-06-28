@@ -1,8 +1,8 @@
-import { ConfigType, registerAs } from '@nestjs/config'
+import { ConfigType, registerAs } from '@nestjs/config';
 
-import { env, envBoolean, isDev } from '~/global/env'
+import { env, envBoolean, isDev } from '~/global/env';
 
-export const swaggerRegToken = 'swagger'
+export const swaggerRegToken = 'swagger';
 
 export const SwaggerConfig = registerAs(swaggerRegToken, () => ({
   enable: envBoolean('SWAGGER_ENABLE', isDev),
@@ -10,6 +10,6 @@ export const SwaggerConfig = registerAs(swaggerRegToken, () => ({
   title: env('SWAGGER_TITLE', 'nest-prisma-admin'),
   description: env('SWAGGER_DESCRIPTION', 'API 文档'),
   version: env('SWAGGER_VERSION', '1.0.0'),
-}))
+}));
 
-export type ISwaggerConfig = ConfigType<typeof SwaggerConfig>
+export type ISwaggerConfig = ConfigType<typeof SwaggerConfig>;

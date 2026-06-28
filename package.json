@@ -25,7 +25,15 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "prisma db seed",
     "db:push": "prisma db push",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "prepare": "husky",
+    "cz": "cz",
+    "commit": "git add . && cz"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
   },
   "dependencies": {
     "@fastify/swagger": "^9.7.0",
@@ -67,6 +75,8 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.1.0",
+    "@commitlint/config-conventional": "^21.1.0",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
@@ -84,11 +94,15 @@
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^7.0.0",
     "@types/ua-parser-js": "^0.7.39",
+    "commitizen": "^4.3.2",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^17.0.0",
+    "husky": "^9.1.7",
     "jest": "^30.0.0",
+    "lint-staged": "^17.0.8",
     "prettier": "^3.4.2",
     "prisma": "^7.8.0",
     "source-map-support": "^0.5.21",
@@ -96,6 +110,12 @@
     "ts-jest": "^29.2.5",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   },
   "jest": {
     "moduleFileExtensions": [

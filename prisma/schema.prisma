@@ -43,6 +43,17 @@ model User {
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
   deletedId    BigInt    @default(0) @map("deleted_id")
 
+  dept            Dept?              @relation("UserDept", fields: [deptId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  leadingDepts    Dept[]             @relation("DeptLeader")
+  credential      UserCredential?
+  userRoles       UserRole[]
+  dataScopeDepts  UserDataScopeDept[]
+  identities      UserIdentity[]
+  sessions        AuthSession[]
+  refreshTokens   RefreshToken[]
+  loginLogs       LoginLog[]
+  operationLogs   OperationLog[]
+
   @@unique([username, deletedId])
   @@unique([email, deletedId])
   @@unique([phone, deletedId])
@@ -65,6 +76,8 @@ model UserCredential {
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
   @@index([lockedUntil])
   @@map("user_credentials")
 }
@@ -79,6 +92,8 @@ model AuthProvider {
   status    Int      @default(1) @db.SmallInt
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  identities UserIdentity[]
 
   @@unique([code])
   @@index([type])
@@ -98,7 +113,10 @@ model UserIdentity {
   linkedAt         DateTime  @default(now()) @map("linked_at") @db.Timestamptz(3)
   lastLoginAt      DateTime? @map("last_login_at") @db.Timestamptz(3)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
-  deletedId        BigInt    @default(0) @map("deleted_id")
+  deletedId    BigInt    @default(0) @map("deleted_id")
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  provider AuthProvider @relation(fields: [providerId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([providerId, providerSubject, deletedId])
   @@unique([userId, providerId, deletedId])
@@ -127,6 +145,12 @@ model Dept {
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
   deletedId    BigInt    @default(0) @map("deleted_id")
 
+  parent          Dept? @relation("DeptParent", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  children        Dept[] @relation("DeptParent")
+  leader          User? @relation("DeptLeader", fields: [leaderUserId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  users           User[] @relation("UserDept")
+  dataScopeDepts  UserDataScopeDept[]
+
   @@unique([code, deletedId])
   @@index([parentId, sort])
   @@index([deletedId, parentId, sort])
@@ -149,7 +173,11 @@ model Role {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
-  deletedId BigInt    @default(0) @map("deleted_id")
+  deletedId    BigInt    @default(0) @map("deleted_id")
+
+  userRoles        UserRole[]
+  roleMenus        RoleMenu[]
+  rolePermissions  RolePermission[]
 
   @@unique([code, deletedId])
   @@index([deletedId, status, sort])
@@ -163,6 +191,9 @@ model UserRole {
   roleId    BigInt   @map("role_id")
   createdBy BigInt?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([userId, roleId])
   @@index([roleId])
@@ -195,6 +226,12 @@ model Menu {
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(3)
   deletedId    BigInt    @default(0) @map("deleted_id")
 
+  parent       Menu?  @relation("MenuParent", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  children     Menu[] @relation("MenuParent")
+  activeMenu   Menu?  @relation("MenuActiveMenu", fields: [activeMenuId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  linkedMenus  Menu[] @relation("MenuActiveMenu")
+  roleMenus    RoleMenu[]
+
   @@unique([name, deletedId])
   @@index([parentId, sort])
   @@index([activeMenuId])
@@ -211,6 +248,9 @@ model RoleMenu {
   menuId    BigInt   @map("menu_id")
   createdBy BigInt?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  menu Menu @relation(fields: [menuId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([roleId, menuId])
   @@index([menuId])
@@ -234,7 +274,9 @@ model Permission {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
-  deletedId BigInt    @default(0) @map("deleted_id")
+  deletedId    BigInt    @default(0) @map("deleted_id")
+
+  rolePermissions RolePermission[]
 
   @@unique([code, deletedId])
   @@index([method, path])
@@ -248,7 +290,10 @@ model RolePermission {
   roleId       BigInt   @map("role_id")
   permissionId BigInt   @map("permission_id")
   createdBy    BigInt?  @map("created_by")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([roleId, permissionId])
   @@index([permissionId])
@@ -260,6 +305,9 @@ model UserDataScopeDept {
   userId    BigInt   @map("user_id")
   deptId    BigInt   @map("dept_id")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  dept Dept @relation(fields: [deptId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([userId, deptId])
   @@index([deptId])
@@ -279,7 +327,9 @@ model DictType {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
-  deletedId BigInt    @default(0) @map("deleted_id")
+  deletedId    BigInt    @default(0) @map("deleted_id")
+
+  items DictItem[]
 
   @@unique([code, deletedId])
   @@index([deletedId, status])
@@ -303,7 +353,9 @@ model DictItem {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(3)
-  deletedId  BigInt    @default(0) @map("deleted_id")
+  deletedId    BigInt    @default(0) @map("deleted_id")
+
+  dictType DictType @relation(fields: [dictTypeId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([dictTypeId, value, deletedId])
   @@index([dictTypeId, deletedId, status, sort])
@@ -326,6 +378,9 @@ model AuthSession {
   revokeReason String?   @map("revoke_reason") @db.VarChar(255)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  refreshTokens RefreshToken[]
+
   @@index([userId])
   @@index([userId, status])
   @@index([expiresAt])
@@ -344,6 +399,9 @@ model RefreshToken {
   revokedAt         DateTime? @map("revoked_at") @db.Timestamptz(3)
   replacedByTokenId BigInt?   @map("replaced_by_token_id")
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  session AuthSession @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([userId])
   @@index([sessionId, revokedAt])
@@ -367,6 +425,8 @@ model LoginLog {
   status        Int      @db.SmallInt
   failureReason String?  @map("failure_reason") @db.VarChar(255)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([userId, createdAt])
   @@index([username, createdAt])
@@ -395,6 +455,8 @@ model OperationLog {
   errorMessage  String?  @map("error_message") @db.Text
   durationMs    Int?     @map("duration_ms")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([userId, createdAt])
   @@index([action])

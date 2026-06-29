@@ -1,8 +1,8 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
-  @ApiPropertyOptional({ description: '用户名' })
+  @ApiProperty({ description: '用户名', example: 'admin' })
   @IsString()
   @MinLength(3)
   @MaxLength(64)

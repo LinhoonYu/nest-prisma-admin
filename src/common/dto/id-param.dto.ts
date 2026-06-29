@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 
 /**
@@ -6,6 +7,10 @@ import { IsString } from 'class-validator';
  * 具体转换留到 service 层用 BigInt(id) 处理。
  */
 export class IdParam {
+  @ApiProperty({
+    description: '记录 ID（BigInt 字符串）',
+    example: '1',
+  })
   @IsString()
   id: string;
 }

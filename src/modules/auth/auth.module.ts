@@ -54,6 +54,6 @@ import { UserContextService } from './user-context.service';
       useClass: JwtAuthGuard,
     },
   ],
-  exports: [UserContextService],
+  exports: [UserContextService, PasswordService],
 })
 export class AuthModule {}

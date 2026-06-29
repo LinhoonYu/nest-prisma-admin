@@ -9,7 +9,7 @@ const PERMS_PREFIX = 'user:perms:';
 const CACHE_TTL = 300;
 
 interface CachedUser {
-  id: bigint;
+  id: string;
   username: string;
   nickname: string | null;
   realName: string | null;
@@ -19,7 +19,7 @@ interface CachedUser {
   gender: number;
   status: number;
   isSuperAdmin: boolean;
-  deptId: bigint | null;
+  deptId: string | null;
   dataScope: number;
 }
 
@@ -54,9 +54,16 @@ export class UserContextService {
     });
 
     if (user) {
-      await this.redis.setCache(cacheKey, user, CACHE_TTL);
+      // BigInt 无法 JSON 序列化，转为 string
+      const cachedUser: CachedUser = {
+        ...user,
+        id: String(user.id),
+        deptId: user.deptId ? String(user.deptId) : null,
+      };
+      await this.redis.setCache(cacheKey, cachedUser, CACHE_TTL);
+      return cachedUser;
     }
-    return user;
+    return null;
   }
 
   async getRoleCodes(userId: string): Promise<string[]> {

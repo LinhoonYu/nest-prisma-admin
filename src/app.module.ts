@@ -5,7 +5,9 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
+import { DictModule } from './modules/dict/dict.module';
 import { IamModule } from './modules/iam/iam.module';
+import { LogModule } from './modules/log/log.module';
 import { AppConfig, SecurityConfig, SwaggerConfig } from '~/config';
 import { PrismaModule } from '~/shared/prisma/prisma.module';
 import { RedisModule } from '~/shared/redis/redis.module';
@@ -22,6 +24,8 @@ import { RedisModule } from '~/shared/redis/redis.module';
     RedisModule,
     AuthModule,
     IamModule,
+    DictModule,
+    LogModule,
   ],
   controllers: [AppController],
   providers: [AppService],

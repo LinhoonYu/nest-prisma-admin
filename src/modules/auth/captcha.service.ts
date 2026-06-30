@@ -17,10 +17,10 @@ export class CaptchaService {
   ) {}
 
   async generate(): Promise<{ key: string; svg: string }> {
-    const { length } = this.securityConfig.captcha;
-    const captcha = svgCaptcha.create({
-      size: length,
-      ignoreChars: '0oO1ilI',
+    const captcha = svgCaptcha.createMathExpr({
+      mathMin: 1,
+      mathMax: 20,
+      mathOperator: '+/-',
       noise: 2,
       color: true,
     });

@@ -1,5 +1,5 @@
 import { Reflector } from '@nestjs/core';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import {
@@ -27,6 +27,8 @@ async function bootstrap() {
   const globalPrefix =
     configService.get('app.globalPrefix', { infer: true }) || 'api';
   app.setGlobalPrefix(globalPrefix);
+
+  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
   app.useGlobalPipes(
     new ValidationPipe({

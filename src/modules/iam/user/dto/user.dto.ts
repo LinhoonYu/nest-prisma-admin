@@ -98,12 +98,6 @@ export class UpdateUserDto {
   @MaxLength(64)
   realName?: string;
 
-  @ApiProperty({ description: '头像', required: false })
-  @IsOptional()
-  @IsString()
-  @MaxLength(512)
-  avatar?: string;
-
   @ApiProperty({ description: '邮箱', required: false })
   @IsOptional()
   @IsEmail()

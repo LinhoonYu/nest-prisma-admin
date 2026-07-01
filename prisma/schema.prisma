@@ -24,7 +24,7 @@ model User {
   username     String    @db.VarChar(64)
   nickname     String?   @db.VarChar(64)
   realName     String?   @map("real_name") @db.VarChar(64)
-  avatar       String?   @db.VarChar(512)
+  avatarFileId BigInt?   @map("avatar_file_id")
   email        String?   @db.VarChar(128)
   phone        String?   @db.VarChar(32)
   gender       Int       @default(0) @db.SmallInt
@@ -53,6 +53,7 @@ model User {
   refreshTokens   RefreshToken[]
   loginLogs       LoginLog[]
   operationLogs   OperationLog[]
+  avatarFile      File?              @relation("UserAvatar", fields: [avatarFileId], references: [id], onDelete: SetNull, onUpdate: Restrict)
 
   @@unique([username, deletedId])
   @@unique([email, deletedId])
@@ -465,4 +466,41 @@ model OperationLog {
   @@index([requestId])
   @@index([createdAt])
   @@map("operation_logs")
+}
+
+model File {
+  id           BigInt    @id @default(autoincrement())
+  originalName String    @map("original_name") @db.VarChar(255)
+  objectKey    String    @unique @map("object_key") @db.VarChar(512)
+  mimeType     String    @map("mime_type") @db.VarChar(128)
+  size         BigInt
+  bucketName   String    @map("bucket_name") @db.VarChar(128)
+  createdBy    BigInt?   @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedBy    BigInt?   @map("updated_by")
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  userAvatars   User[]             @relation("UserAvatar")
+  fileRelations FileRelation[]
+
+  @@index([createdBy])
+  @@index([createdAt])
+  @@map("files")
+}
+
+model FileRelation {
+  id        BigInt   @id @default(autoincrement())
+  fileId    BigInt   @map("file_id")
+  refTable  String   @map("ref_table") @db.VarChar(64)
+  refId     BigInt   @map("ref_id")
+  refField  String   @map("ref_field") @db.VarChar(64)
+  createdBy BigInt?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([fileId, refTable, refId, refField])
+  @@index([refTable, refId])
+  @@index([refTable, refId, refField])
+  @@map("file_relations")
 }

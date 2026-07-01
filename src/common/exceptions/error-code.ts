@@ -43,4 +43,8 @@ export enum ApiCode {
   RsaDisabled = 4001,
   RsaPublicKeyUnavailable = 4002,
   RsaDecryptFailed = 4003,
+
+  // 文件相关 5xxx
+  FileNotFound = 5001,
+  FileTooLarge = 5002,
 }

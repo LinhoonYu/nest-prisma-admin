@@ -31,6 +31,10 @@ export class TransformInterceptor<T> implements NestInterceptor<
     return next.handle().pipe(
       map((data) => {
         if (isRaw) return data;
+        // logout 等接口可能返回 undefined，直接放行，避免 JSON.parse(undefined) 抛错
+        if (data === undefined || data === null) {
+          return ApiResult.success(data);
+        }
         // BigInt 不能被 JSON.stringify 直接序列化，走 replacer 转 string
         const sanitized = JSON.parse(
           JSON.stringify(data, bigintReplacer),

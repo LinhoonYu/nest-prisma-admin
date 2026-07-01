@@ -7,6 +7,7 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import fastifyMultipart from '@fastify/multipart';
 
 import { AppModule } from './app.module';
 import { AllConfigType } from '~/config';
@@ -23,6 +24,11 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   const configService = app.get(ConfigService<AllConfigType>);
+
+  const storageConfig = configService.get('storage', { infer: true });
+  await app.register(fastifyMultipart, {
+    limits: { fileSize: storageConfig!.maxFileSize * 1024 * 1024 },
+  });
 
   const globalPrefix =
     configService.get('app.globalPrefix', { infer: true }) || 'api';
@@ -68,4 +74,4 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+void bootstrap();

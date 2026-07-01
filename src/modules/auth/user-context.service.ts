@@ -13,7 +13,6 @@ interface CachedUser {
   username: string;
   nickname: string | null;
   realName: string | null;
-  avatar: string | null;
   email: string | null;
   phone: string | null;
   gender: number;
@@ -42,7 +41,6 @@ export class UserContextService {
         username: true,
         nickname: true,
         realName: true,
-        avatar: true,
         email: true,
         phone: true,
         gender: true,

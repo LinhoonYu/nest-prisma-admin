@@ -26,7 +26,9 @@ async function bootstrap() {
 
   const globalPrefix =
     configService.get('app.globalPrefix', { infer: true }) || 'api';
-  app.setGlobalPrefix(globalPrefix);
+  app.setGlobalPrefix(globalPrefix, {
+    exclude: ['health', 'health/ready'],
+  });
 
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 

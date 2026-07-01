@@ -2,13 +2,12 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { DictModule } from './modules/dict/dict.module';
 import { IamModule } from './modules/iam/iam.module';
 import { LogModule } from './modules/log/log.module';
 import { AppConfig, SecurityConfig, SwaggerConfig } from '~/config';
+import { HealthModule } from '~/global/health/health.module';
 import { PrismaModule } from '~/shared/prisma/prisma.module';
 import { RedisModule } from '~/shared/redis/redis.module';
 
@@ -22,12 +21,11 @@ import { RedisModule } from '~/shared/redis/redis.module';
     EventEmitterModule.forRoot(),
     PrismaModule,
     RedisModule,
+    HealthModule,
     AuthModule,
     IamModule,
     DictModule,
     LogModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
 })
 export class AppModule {}

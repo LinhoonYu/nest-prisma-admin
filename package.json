@@ -28,7 +28,8 @@
     "db:reset": "prisma migrate reset",
     "prepare": "husky",
     "cz": "cz",
-    "commit": "git add . && cz"
+    "commit": "git add . && cz",
+    "postinstall": "prisma generate"
   },
   "config": {
     "commitizen": {

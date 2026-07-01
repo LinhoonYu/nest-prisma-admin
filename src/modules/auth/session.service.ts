@@ -81,7 +81,7 @@ export class SessionService {
         data: { revokedAt: new Date() },
       }),
     ]);
-    await this.redis.del(SESSION_ACTIVE_PREFIX + sessionId);
+    await this.clearActiveCache(sessionId);
   }
 
   async revokeByUser(userId: bigint, reason: string): Promise<void> {
@@ -108,8 +108,8 @@ export class SessionService {
       }),
     ]);
 
-    await Promise.all(
-      sessionIds.map((id) => this.redis.del(SESSION_ACTIVE_PREFIX + id)),
+    await this.redis.delMany(
+      sessionIds.map((id) => SESSION_ACTIVE_PREFIX + id),
     );
   }
 
@@ -118,6 +118,10 @@ export class SessionService {
       where: { id: sessionId },
       data: { lastActiveAt: new Date() },
     });
+  }
+
+  async clearActiveCache(sessionId: bigint): Promise<void> {
+    await this.redis.del(SESSION_ACTIVE_PREFIX + sessionId);
   }
 
   private async cacheActive(sessionId: bigint): Promise<void> {

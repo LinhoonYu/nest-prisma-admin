@@ -125,10 +125,10 @@ export class UserContextService {
   }
 
   async invalidate(userId: string): Promise<void> {
-    await Promise.all([
-      this.redis.del(USER_PREFIX + userId),
-      this.redis.del(ROLES_PREFIX + userId),
-      this.redis.del(PERMS_PREFIX + userId),
+    await this.redis.delMany([
+      USER_PREFIX + userId,
+      ROLES_PREFIX + userId,
+      PERMS_PREFIX + userId,
     ]);
   }
 }

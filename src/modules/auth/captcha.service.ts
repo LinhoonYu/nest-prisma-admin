@@ -35,9 +35,7 @@ export class CaptchaService {
   }
 
   async verify(key: string, code: string): Promise<void> {
-    const stored = await this.redis.getCache<string>(CAPTCHA_PREFIX + key);
-    // 无论成功失败都删除，防重放
-    await this.redis.del(CAPTCHA_PREFIX + key);
+    const stored = await this.redis.getAndDelete<string>(CAPTCHA_PREFIX + key);
     if (!stored || stored !== code.toLowerCase()) {
       throw new ApiException(ApiCode.CaptchaError, '验证码错误或已过期');
     }

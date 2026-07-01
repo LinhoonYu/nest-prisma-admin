@@ -117,7 +117,7 @@ export class RsaService implements OnModuleInit, OnModuleDestroy {
    * 用 generateKeyPair（异步）而非 generateKeyPairSync，避免阻塞事件循环。
    * old 的 TTL = rotateSeconds + buffer，保证轮换延迟时 overlap 窗口不断裂。
    */
-  async rotateKeyPair(): Promise<void> {
+  async rotateKeyPair(): Promise<string> {
     const { publicKey, privateKey } = await generateKeyPairAsync('rsa', {
       modulusLength: this.securityConfig.rsa.keyBits,
       publicKeyEncoding: { type: 'spki', format: 'pem' },
@@ -129,19 +129,22 @@ export class RsaService implements OnModuleInit, OnModuleDestroy {
       this.securityConfig.rsa.rotateSeconds + OLD_KEY_BUFFER_SECONDS;
 
     const currentPrivateKey = await this.redis.getCache<string>(RSA_CUR_KEY);
-    if (currentPrivateKey) {
-      await this.redis.setCache(RSA_OLD_KEY, currentPrivateKey, oldTtl);
-    }
 
-    await this.redis.setCache(RSA_CUR_KEY, privateKey, curTtl);
-    await this.redis.setCache(RSA_PUB_KEY, publicKey, curTtl);
+    const ops: Promise<unknown>[] = [
+      this.redis.setCache(RSA_CUR_KEY, privateKey, curTtl),
+      this.redis.setCache(RSA_PUB_KEY, publicKey, curTtl),
+    ];
+    if (currentPrivateKey) {
+      ops.push(this.redis.setCache(RSA_OLD_KEY, currentPrivateKey, oldTtl));
+    }
+    await Promise.all(ops);
 
     this.logger.debug(
       `Rotated RSA key pair. cur TTL=${curTtl}s, old TTL=${oldTtl}s`,
     );
+    return publicKey;
   }
 
-  /** 获取当前公钥，只读 Redis */
   async getPublicKey(): Promise<{ publicKey: string }> {
     if (!this.securityConfig.rsa.enabled) {
       throw new ApiException(ApiCode.RsaDisabled, 'RSA 加密未开启');
@@ -151,16 +154,7 @@ export class RsaService implements OnModuleInit, OnModuleDestroy {
     if (publicKey) return { publicKey };
 
     this.logger.warn('RSA public key missing, triggering rotation');
-    await this.rotateKeyPair();
-
-    const fresh = await this.redis.getCache<string>(RSA_PUB_KEY);
-    if (!fresh) {
-      throw new ApiException(
-        ApiCode.RsaPublicKeyUnavailable,
-        '公钥获取失败，请稍后重试',
-      );
-    }
-    return { publicKey: fresh };
+    return { publicKey: await this.rotateKeyPair() };
   }
 
   /**
@@ -168,8 +162,10 @@ export class RsaService implements OnModuleInit, OnModuleDestroy {
    * 先试当前私钥，失败后试上一轮私钥，保证轮换间隙的请求仍能解密。
    */
   async decrypt(encryptedData: string): Promise<string> {
-    const cur = await this.redis.getCache<string>(RSA_CUR_KEY);
-    const old = await this.redis.getCache<string>(RSA_OLD_KEY);
+    const [cur, old] = await this.redis.getMany<string>([
+      RSA_CUR_KEY,
+      RSA_OLD_KEY,
+    ]);
 
     if (cur) {
       const result = this.tryDecrypt(cur, encryptedData);

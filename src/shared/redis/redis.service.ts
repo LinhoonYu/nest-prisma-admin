@@ -100,6 +100,36 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return this.client.del(this.prefix(key));
   }
 
+  async delMany(keys: string[]): Promise<number> {
+    if (keys.length === 0) return 0;
+    return this.client.del(...keys.map((k) => this.prefix(k)));
+  }
+
+  async getMany<T>(keys: string[]): Promise<(T | null)[]> {
+    if (keys.length === 0) return [];
+    const values = await this.client.mget(...keys.map((k) => this.prefix(k)));
+    return values.map((data) => {
+      if (data === null) return null;
+      try {
+        return JSON.parse(data) as T;
+      } catch {
+        return data as unknown as T;
+      }
+    });
+  }
+
+  async getAndDelete<T>(key: string): Promise<T | null> {
+    const data = (await this.client.call('GETDEL', this.prefix(key))) as
+      | string
+      | null;
+    if (data === null) return null;
+    try {
+      return JSON.parse(data) as T;
+    } catch {
+      return data as unknown as T;
+    }
+  }
+
   async exists(key: string): Promise<boolean> {
     const result = await this.client.exists(this.prefix(key));
     return result === 1;

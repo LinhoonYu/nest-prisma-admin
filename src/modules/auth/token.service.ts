@@ -9,8 +9,9 @@ import { ISecurityConfig, SecurityConfig } from '~/config';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { RedisService } from '~/shared/redis/redis.service';
 
+import { SessionService } from './session.service';
+
 const BLACKLIST_PREFIX = 'blacklist:';
-const SESSION_ACTIVE_PREFIX = 'session:active:';
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -41,6 +42,7 @@ export class TokenService {
     private jwtService: JwtService,
     private prisma: PrismaService,
     private redis: RedisService,
+    private sessionService: SessionService,
     @Inject(SecurityConfig.KEY) private securityConfig: ISecurityConfig,
   ) {}
 
@@ -142,12 +144,12 @@ export class TokenService {
     if (!decoded?.exp) return;
     const ttl = decoded.exp - Math.floor(Date.now() / 1000);
     if (ttl > 0) {
-      await this.redis.setCache(BLACKLIST_PREFIX + token, 1, ttl);
+      await this.redis.setCache(BLACKLIST_PREFIX + hashToken(token), 1, ttl);
     }
   }
 
   async isBlacklisted(token: string): Promise<boolean> {
-    return this.redis.exists(BLACKLIST_PREFIX + token);
+    return this.redis.exists(BLACKLIST_PREFIX + hashToken(token));
   }
 
   private async revokeFamily(
@@ -168,6 +170,6 @@ export class TokenService {
         },
       }),
     ]);
-    await this.redis.del(SESSION_ACTIVE_PREFIX + sessionId);
+    await this.sessionService.clearActiveCache(sessionId);
   }
 }

@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
 import { PasswordService } from '~/modules/auth/password.service';
+import { UserContextService } from '~/modules/auth/user-context.service';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 
 import {
@@ -19,6 +20,7 @@ export class UserService {
   constructor(
     private prisma: PrismaService,
     private passwordService: PasswordService,
+    private userContextService: UserContextService,
   ) {}
 
   async list(query: UserQueryDto) {
@@ -52,6 +54,7 @@ export class UserService {
           deptId: true,
           dataScope: true,
           remark: true,
+          avatarFileId: true,
           lastLoginAt: true,
           lastLoginIp: true,
           createdAt: true,
@@ -71,6 +74,9 @@ export class UserService {
       include: {
         userRoles: {
           select: { roleId: true },
+        },
+        avatarFile: {
+          select: { id: true, originalName: true, mimeType: true },
         },
       },
     });
@@ -107,6 +113,14 @@ export class UserService {
       if (!dept) throw new ApiException(ApiCode.DeptNotFound, '部门不存在');
     }
 
+    if (dto.avatarFileId != null) {
+      const file = await this.prisma.file.findUnique({
+        where: { id: dto.avatarFileId },
+        select: { id: true },
+      });
+      if (!file) throw new ApiException(ApiCode.FileNotFound, '头像文件不存在');
+    }
+
     const passwordHash = await this.passwordService.hash(dto.password);
 
     return this.prisma.$transaction(async (tx) => {
@@ -119,6 +133,7 @@ export class UserService {
           phone: dto.phone,
           gender: dto.gender,
           deptId: dto.deptId,
+          avatarFileId: dto.avatarFileId,
           status: dto.status,
           remark: dto.remark,
           createdBy: operatorId,
@@ -150,7 +165,6 @@ export class UserService {
         throw new ApiException(ApiCode.DuplicateEmail, '邮箱已存在');
     }
 
-    // 部门变更时校验新部门存在，避免直接抛外键约束错误
     if (dto.deptId !== undefined && dto.deptId !== user.deptId) {
       const dept = await this.prisma.dept.findUnique({
         where: { id: dto.deptId },
@@ -158,10 +172,24 @@ export class UserService {
       if (!dept) throw new ApiException(ApiCode.DeptNotFound, '部门不存在');
     }
 
-    return this.prisma.user.update({
+    if (dto.avatarFileId != null) {
+      const file = await this.prisma.file.findUnique({
+        where: { id: dto.avatarFileId },
+        select: { id: true },
+      });
+      if (!file) throw new ApiException(ApiCode.FileNotFound, '头像文件不存在');
+    }
+
+    const updated = await this.prisma.user.update({
       where: { id },
       data: { ...dto, updatedBy: operatorId },
     });
+
+    // 用户信息变更后使 Redis 缓存失效，下次请求重新从 DB 加载
+    // 缓存清除失败不影响已提交的更新，缓存会在 TTL 后自然过期
+    this.userContextService.invalidate(id.toString()).catch(() => undefined);
+
+    return updated;
   }
 
   async remove(id: bigint, operatorId: bigint) {
@@ -212,6 +240,9 @@ export class UserService {
         });
       }
     });
+
+    // 角色变更影响权限缓存，使缓存失效
+    this.userContextService.invalidate(id.toString()).catch(() => undefined);
   }
 
   async assignDataScope(
@@ -243,6 +274,9 @@ export class UserService {
         });
       }
     });
+
+    // 数据范围变更影响用户缓存，使缓存失效
+    this.userContextService.invalidate(id.toString()).catch(() => undefined);
   }
 
   async resetPassword(id: bigint, dto: ResetPasswordDto) {

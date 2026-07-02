@@ -13,6 +13,7 @@ interface CachedUser {
   username: string;
   nickname: string | null;
   realName: string | null;
+  avatarFileId: string | null;
   email: string | null;
   phone: string | null;
   gender: number;
@@ -41,6 +42,7 @@ export class UserContextService {
         username: true,
         nickname: true,
         realName: true,
+        avatarFileId: true,
         email: true,
         phone: true,
         gender: true,
@@ -56,6 +58,7 @@ export class UserContextService {
       const cachedUser: CachedUser = {
         ...user,
         id: String(user.id),
+        avatarFileId: user.avatarFileId ? String(user.avatarFileId) : null,
         deptId: user.deptId ? String(user.deptId) : null,
       };
       await this.redis.setCache(cacheKey, cachedUser, CACHE_TTL);

@@ -7,6 +7,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Readable } from 'stream';
 
 import { IStorageConfig, StorageConfig } from '~/config';
 
@@ -72,5 +73,24 @@ export class S3Service implements OnModuleInit {
       }),
       { expiresIn },
     );
+  }
+
+  async getObjectStream(
+    key: string,
+  ): Promise<{ stream: Readable; mimeType: string }> {
+    const res = await this.client.send(
+      new GetObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+      }),
+    );
+    const body = res.Body;
+    if (!body || !(body instanceof Readable)) {
+      throw new Error('S3 返回的文件流不可用');
+    }
+    return {
+      stream: body,
+      mimeType: res.ContentType || 'application/octet-stream',
+    };
   }
 }

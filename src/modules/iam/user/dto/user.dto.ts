@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -79,6 +79,19 @@ export class CreateUserDto {
   @MaxLength(512)
   remark?: string;
 
+  @ApiProperty({
+    description: '头像文件 ID（BigInt 字符串）',
+    required: false,
+    type: String,
+    example: '1',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined || value === '') return null;
+    return BigInt(value);
+  })
+  avatarFileId?: bigint | null;
+
   @ApiProperty({ description: '初始密码' })
   @IsString()
   @MinLength(6)
@@ -140,6 +153,19 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(512)
   remark?: string;
+
+  @ApiProperty({
+    description: '头像文件 ID（BigInt 字符串），传 null 清空',
+    required: false,
+    type: String,
+    example: '1',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined || value === '') return null;
+    return BigInt(value);
+  })
+  avatarFileId?: bigint | null;
 }
 
 export class UserQueryDto extends PagerDto {

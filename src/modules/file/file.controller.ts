@@ -1,4 +1,12 @@
-import { Controller, Delete, Get, Post, Query } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiConsumes,
@@ -6,12 +14,15 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { FastifyRequest } from 'fastify';
+import { FastifyReply, FastifyRequest } from 'fastify';
 
 import { CurrentUser } from '~/common/decorators/current-user.decorator';
 import { Perm } from '~/common/decorators/perm.decorator';
+import { Public } from '~/common/decorators/public.decorator';
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
+import { IdParam } from '~/common/dto/id-param.dto';
+import { RawResponse } from '~/common/interceptors/transform.interceptor';
 import { FileService } from './file.service';
 import { filePermissions } from './file.permissions';
 import {
@@ -71,5 +82,22 @@ export class FileController {
   @Perm(filePermissions.READ)
   presign(@Query() dto: FilePresignDto) {
     return this.fileService.presign(dto.key);
+  }
+
+  @Get('proxy/:id')
+  @Public()
+  @RawResponse()
+  @ApiOperation({ summary: '代理访问文件（流式返回）' })
+  async proxy(@Param() { id }: IdParam, @Res() reply: FastifyReply) {
+    const { stream, mimeType } = await this.fileService.getStreamById(
+      BigInt(id),
+    );
+    stream.on('error', () => {
+      if (!reply.sent) reply.code(502).send({ message: '文件流读取失败' });
+    });
+    reply
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .type(mimeType)
+      .send(stream);
   }
 }

@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { extname } from 'path';
 import { nanoid } from 'nanoid';
+import { Readable } from 'stream';
 import dayjs from 'dayjs';
 
 import { ApiException } from '~/common/exceptions/api.exception';
@@ -106,5 +107,17 @@ export class FileService {
       mimeType: file.mimeType,
       url,
     };
+  }
+
+  async getStreamById(
+    id: bigint,
+  ): Promise<{ stream: Readable; mimeType: string }> {
+    const file = await this.prisma.file.findUnique({
+      where: { id },
+      select: { objectKey: true, mimeType: true },
+    });
+    if (!file) throw new ApiException(ApiCode.FileNotFound, '文件不存在');
+
+    return this.s3.getObjectStream(file.objectKey);
   }
 }

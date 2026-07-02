@@ -13,6 +13,7 @@ import { AppModule } from './app.module';
 import { AllConfigType } from '~/config';
 import { AllExceptionFilter } from '~/common/filters/all-exception.filter';
 import { TransformInterceptor } from '~/common/interceptors/transform.interceptor';
+import { RedisIoAdapter } from '~/modules/ws/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -24,6 +25,17 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   const configService = app.get(ConfigService<AllConfigType>);
+
+  // WebSocket Redis 适配器（用于多实例水平扩展）
+  const logger = new Logger('Bootstrap');
+  try {
+    const redisIoAdapter = new RedisIoAdapter(app);
+    await redisIoAdapter.connectToRedis();
+    app.useWebSocketAdapter(redisIoAdapter);
+    logger.log('WebSocket Redis 适配器已启用');
+  } catch (err) {
+    logger.warn(`Redis 不可用，使用默认 WS 适配器: ${(err as Error).message}`);
+  }
 
   const storageConfig = configService.get('storage', { infer: true });
   await app.register(fastifyMultipart, {
@@ -65,7 +77,6 @@ async function bootstrap() {
   const port = configService.get('app.port', { infer: true }) || 3000;
   await app.listen(port, '0.0.0.0');
 
-  const logger = new Logger('Bootstrap');
   logger.log(`Server running on http://localhost:${port}/${globalPrefix}`);
   if (swaggerConfig?.enable) {
     logger.log(

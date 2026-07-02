@@ -47,4 +47,9 @@ export enum ApiCode {
   // 文件相关 5xxx
   FileNotFound = 5001,
   FileTooLarge = 5002,
+
+  // 通知相关 6xxx
+  NoticeNotFound = 6001,
+  NoticeAlreadyPublished = 6002,
+  NoticeNotPublished = 6003,
 }

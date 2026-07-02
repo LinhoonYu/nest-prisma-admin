@@ -7,6 +7,8 @@ import { DictModule } from './modules/dict/dict.module';
 import { FileModule } from './modules/file/file.module';
 import { IamModule } from './modules/iam/iam.module';
 import { LogModule } from './modules/log/log.module';
+import { NoticeModule } from './modules/notice/notice.module';
+import { WsModule } from './modules/ws/ws.module';
 import {
   AppConfig,
   SecurityConfig,
@@ -35,6 +37,8 @@ import { S3Module } from '~/shared/s3/s3.module';
     DictModule,
     FileModule,
     LogModule,
+    NoticeModule,
+    WsModule,
   ],
 })
 export class AppModule {}

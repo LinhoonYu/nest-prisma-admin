@@ -1,0 +1,129 @@
+import {
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  OnGatewayInit,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
+import { Logger } from '@nestjs/common';
+import { Server, Socket } from 'socket.io';
+
+import { TokenService } from '~/modules/auth/token.service';
+import { UserContextService } from '~/modules/auth/user-context.service';
+
+export interface AuthenticatedSocket extends Socket {
+  userId: string;
+  sessionId: string;
+}
+
+@WebSocketGateway({
+  cors: { origin: true, credentials: true },
+  transports: ['websocket'],
+})
+export class WsGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
+  private readonly logger = new Logger(WsGateway.name);
+
+  @WebSocketServer()
+  server!: Server;
+
+  constructor(
+    private tokenService: TokenService,
+    private userContextService: UserContextService,
+  ) {}
+
+  afterInit() {
+    this.logger.log('WebSocket Gateway 初始化完成');
+  }
+
+  async handleConnection(client: Socket): Promise<void> {
+    try {
+      const authToken = this.extractToken(client);
+
+      if (!authToken) {
+        this.logger.warn(`客户端 ${client.id} 连接被拒绝：缺少 token`);
+        client.emit('error', { code: 401, message: '请先登录' });
+        client.disconnect(true);
+        return;
+      }
+
+      if (await this.tokenService.isBlacklisted(authToken)) {
+        this.logger.warn(`客户端 ${client.id} 连接被拒绝：token 已失效`);
+        client.emit('error', { code: 401, message: '令牌已失效，请重新登录' });
+        client.disconnect(true);
+        return;
+      }
+
+      const payload = await this.tokenService.verifyAccess(authToken);
+
+      const authedSocket = client as AuthenticatedSocket;
+      authedSocket.userId = payload.userId;
+      authedSocket.sessionId = payload.sessionId;
+
+      await client.join(`user:${payload.userId}`);
+
+      this.broadcastOnlineCount();
+
+      this.logger.log(
+        `客户端 ${client.id} 已连接 (userId=${payload.userId}, sessionId=${payload.sessionId})`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `客户端 ${client.id} 连接鉴权失败: ${(err as Error).message}`,
+      );
+      client.emit('error', { code: 401, message: '令牌无效或已过期' });
+      client.disconnect(true);
+    }
+  }
+
+  handleDisconnect(client: Socket): void {
+    const authedSocket = client as AuthenticatedSocket;
+    if (authedSocket.userId) {
+      this.logger.log(
+        `客户端 ${client.id} 已断开 (userId=${authedSocket.userId})`,
+      );
+      setTimeout(() => this.broadcastOnlineCount(), 1000);
+    } else {
+      this.logger.log(`客户端 ${client.id} 已断开（未认证）`);
+    }
+  }
+
+  @SubscribeMessage('ping')
+  handlePing(client: Socket): void {
+    client.emit('pong', { timestamp: Date.now() });
+  }
+
+  /** 向所有客户端广播事件 */
+  broadcast(event: string, data: unknown): void {
+    this.server.emit(event, data);
+  }
+
+  /** 向指定用户推送事件 */
+  sendToUser(userId: string, event: string, data: unknown): void {
+    this.server.to(`user:${userId}`).emit(event, data);
+  }
+
+  private broadcastOnlineCount(): void {
+    const sockets = this.server?.sockets?.sockets;
+    if (!sockets) return;
+
+    const count = Array.from(sockets.values()).filter(
+      (socket) => !!(socket as AuthenticatedSocket).userId,
+    ).length;
+    this.server.emit('online-count', count);
+  }
+
+  private extractToken(client: Socket): string | null {
+    const { auth, query } = client.handshake;
+
+    let rawToken: unknown = auth?.token;
+    if (!rawToken) {
+      rawToken = query?.token;
+    }
+
+    if (typeof rawToken !== 'string' || !rawToken) return null;
+    return rawToken.replace(/^Bearer\s+/i, '');
+  }
+}

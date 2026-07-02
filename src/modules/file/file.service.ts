@@ -58,6 +58,7 @@ export class FileService {
         key: record.objectKey,
         size: record.size.toString(),
         mimeType: record.mimeType,
+        url: `/api/v1/files/proxy/${record.id}`,
       };
     } catch (err) {
       this.logger.error(`DB 记录创建失败，回滚 S3 文件: ${key}`, err);

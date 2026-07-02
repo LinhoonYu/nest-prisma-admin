@@ -5,6 +5,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
 import {
@@ -53,7 +54,10 @@ export class FileController {
   })
   @ApiOkResponse({ type: FileUploadResultDto })
   @Perm(filePermissions.UPLOAD)
-  async upload(request: FastifyRequest, @CurrentUser('userId') userId: string) {
+  async upload(
+    @Req() request: FastifyRequest,
+    @CurrentUser('userId') userId: string,
+  ) {
     const file = await request.file();
     if (!file) throw new ApiException(ApiCode.BadRequest, '未收到文件');
 

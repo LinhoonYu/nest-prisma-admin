@@ -10,13 +10,7 @@ import {
   Min,
 } from 'class-validator';
 
-/** BigInt 字段同时支持 null（清空父级）的自定义转换 */
-const BigIntOrNull = ({ value }: { value: unknown }) =>
-  value === null
-    ? null
-    : value != null
-      ? BigInt(value as string | number)
-      : undefined;
+import { BigIntOrNull } from '~/common/utils/bigint';
 
 /** 手机号宽松校验：支持国际格式 +86... 或纯数字 7-15 位 */
 const PHONE_REGEX = /^\+?\d{7,15}$/;
@@ -28,9 +22,9 @@ export class CreateDeptDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrNull)
   @IsOptional()
-  parentId?: bigint;
+  parentId?: bigint | null;
 
   @ApiProperty({ description: '部门名称' })
   @IsString()
@@ -54,9 +48,9 @@ export class CreateDeptDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrNull)
   @IsOptional()
-  leaderUserId?: bigint;
+  leaderUserId?: bigint | null;
 
   @ApiProperty({ description: '联系电话', required: false })
   @IsOptional()
@@ -121,9 +115,9 @@ export class UpdateDeptDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrNull)
   @IsOptional()
-  leaderUserId?: bigint;
+  leaderUserId?: bigint | null;
 
   @ApiProperty({ description: '联系电话', required: false })
   @IsOptional()

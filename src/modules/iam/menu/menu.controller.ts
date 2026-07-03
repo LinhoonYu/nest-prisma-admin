@@ -25,9 +25,8 @@ export class MenuController {
 
   @Get()
   @ApiOperation({ summary: '菜单树' })
-  @Perm(menuPermissions.LIST)
-  tree(@Query() query?: MenuQueryDto) {
-    return this.menuService.tree(query);
+  tree(@Query() query: MenuQueryDto, @CurrentUser('userId') userId: string) {
+    return this.menuService.tree(query, userId);
   }
 
   @Get(':id')

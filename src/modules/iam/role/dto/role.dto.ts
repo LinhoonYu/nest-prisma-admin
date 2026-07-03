@@ -96,24 +96,24 @@ export class RoleQueryDto extends PagerDto {
 
 export class AssignMenusDto {
   @ApiProperty({
-    description: '菜单 ID 列表（BigInt 字符串数组）',
+    description: '菜单 ID 列表（字符串数组）',
     type: [String],
     example: ['1', '2'],
   })
   @IsArray()
-  @IsInt({ each: true })
+  @IsString({ each: true })
   @ArrayMinSize(0)
-  menuIds: bigint[];
+  menuIds: string[];
 }
 
 export class AssignPermissionsDto {
   @ApiProperty({
-    description: '权限 ID 列表（BigInt 字符串数组）',
+    description: '权限 ID 列表（字符串数组）',
     type: [String],
     example: ['1', '2'],
   })
   @IsArray()
-  @IsInt({ each: true })
+  @IsString({ each: true })
   @ArrayMinSize(0)
-  permissionIds: bigint[];
+  permissionIds: string[];
 }

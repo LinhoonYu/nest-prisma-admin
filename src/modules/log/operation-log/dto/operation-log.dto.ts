@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 import { PagerDto } from '~/common/dto/pager.dto';
+import { BigIntOrUndefined } from '~/common/utils/bigint';
 
 export class OperationLogQueryDto extends PagerDto {
   @ApiProperty({
@@ -11,7 +12,7 @@ export class OperationLogQueryDto extends PagerDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrUndefined)
   @IsOptional()
   userId?: bigint;
 

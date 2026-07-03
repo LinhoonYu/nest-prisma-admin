@@ -2,13 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
-/** BigInt 字段同时支持 null（清空父级）的自定义转换 */
-const BigIntOrNull = ({ value }: { value: unknown }) =>
-  value === null
-    ? null
-    : value != null
-      ? BigInt(value as string | number)
-      : undefined;
+import { BigIntOrNull } from '~/common/utils/bigint';
 
 export class CreateMenuDto {
   @ApiProperty({
@@ -17,9 +11,9 @@ export class CreateMenuDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrNull)
   @IsOptional()
-  parentId?: bigint;
+  parentId?: bigint | null;
 
   @ApiProperty({ description: '类型：1=目录 2=菜单 3=链接 4=iframe' })
   @Type(() => Number)
@@ -97,9 +91,9 @@ export class CreateMenuDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrNull)
   @IsOptional()
-  activeMenuId?: bigint;
+  activeMenuId?: bigint | null;
 
   @ApiProperty({ description: '状态：0=禁用 1=启用', default: 1 })
   @Type(() => Number)
@@ -209,9 +203,9 @@ export class UpdateMenuDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrNull)
   @IsOptional()
-  activeMenuId?: bigint;
+  activeMenuId?: bigint | null;
 
   @ApiProperty({ description: '状态', required: false })
   @Type(() => Number)

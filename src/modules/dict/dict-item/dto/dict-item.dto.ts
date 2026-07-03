@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 
 import { PagerDto } from '~/common/dto/pager.dto';
+import { BigIntOrUndefined } from '~/common/utils/bigint';
 
 export class CreateDictItemDto {
   @ApiProperty({
@@ -17,7 +18,7 @@ export class CreateDictItemDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(({ value }) => BigInt(value))
   dictTypeId: bigint;
 
   @ApiProperty({ description: '字典项标签' })
@@ -123,7 +124,7 @@ export class DictItemQueryDto extends PagerDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrUndefined)
   @IsOptional()
   dictTypeId?: bigint;
 

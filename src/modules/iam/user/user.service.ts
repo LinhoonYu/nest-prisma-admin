@@ -36,11 +36,12 @@ export class UserService {
       ...(status !== undefined && { status }),
     };
 
+    const noPage = pageSize === 0;
+
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        ...(noPage ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
         select: {
           id: true,
           username: true,
@@ -165,7 +166,7 @@ export class UserService {
         throw new ApiException(ApiCode.DuplicateEmail, '邮箱已存在');
     }
 
-    if (dto.deptId !== undefined && dto.deptId !== user.deptId) {
+    if (dto.deptId != null && dto.deptId !== user.deptId) {
       const dept = await this.prisma.dept.findUnique({
         where: { id: dto.deptId },
       });
@@ -218,21 +219,23 @@ export class UserService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new ApiException(ApiCode.UserNotFound, '用户不存在');
 
-    if (dto.roleIds.length > 0) {
+    const roleIds = dto.roleIds.map((rid) => BigInt(rid));
+
+    if (roleIds.length > 0) {
       const validCount = await this.prisma.role.count({
-        where: { id: { in: dto.roleIds } },
+        where: { id: { in: roleIds } },
       });
-      if (validCount !== dto.roleIds.length) {
+      if (validCount !== roleIds.length) {
         throw new ApiException(ApiCode.BadRequest, '部分角色不存在');
       }
     }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.userRole.deleteMany({ where: { userId: id } });
-      if (dto.roleIds.length > 0) {
+      if (roleIds.length > 0) {
         // createMany 一次 SQL 插入，比多个 create 拼事务更高效
         await tx.userRole.createMany({
-          data: dto.roleIds.map((roleId) => ({
+          data: roleIds.map((roleId) => ({
             userId: id,
             roleId,
             createdBy: operatorId,
@@ -253,6 +256,8 @@ export class UserService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new ApiException(ApiCode.UserNotFound, '用户不存在');
 
+    const deptIds = (dto.deptIds ?? []).map((did) => BigInt(did));
+
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id },
@@ -261,16 +266,16 @@ export class UserService {
 
       await tx.userDataScopeDept.deleteMany({ where: { userId: id } });
 
-      if (dto.dataScope === 5 && dto.deptIds && dto.deptIds.length > 0) {
+      if (dto.dataScope === 5 && deptIds.length > 0) {
         const validCount = await tx.dept.count({
-          where: { id: { in: dto.deptIds } },
+          where: { id: { in: deptIds } },
         });
-        if (validCount !== dto.deptIds.length) {
+        if (validCount !== deptIds.length) {
           throw new ApiException(ApiCode.BadRequest, '部分部门不存在');
         }
 
         await tx.userDataScopeDept.createMany({
-          data: dto.deptIds.map((deptId) => ({ userId: id, deptId })),
+          data: deptIds.map((deptId) => ({ userId: id, deptId })),
         });
       }
     });

@@ -23,11 +23,12 @@ export class PermissionService {
       ...(status !== undefined && { status }),
     };
 
+    const noPage = pageSize === 0;
+
     const [items, total] = await Promise.all([
       this.prisma.permission.findMany({
         where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        ...(noPage ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
         orderBy: { sort: 'asc' },
       }),
       this.prisma.permission.count({ where }),

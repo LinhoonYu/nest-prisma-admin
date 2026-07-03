@@ -543,3 +543,19 @@ model NoticeReadRecord {
   @@map("notice_read_records")
 }
 
+model Config {
+  id          BigInt   @id @default(autoincrement())
+  configName  String   @map("config_name") @db.VarChar(64)
+  configKey   String   @map("config_key") @db.VarChar(128)
+  configValue String   @map("config_value") @db.VarChar(512)
+  isSystem    Boolean  @default(false) @map("is_system")
+  remark      String?  @db.VarChar(512)
+  createdBy   BigInt?  @map("created_by")
+  updatedBy   BigInt?  @map("updated_by")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([configKey])
+  @@map("configs")
+}
+

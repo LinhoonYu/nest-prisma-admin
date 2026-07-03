@@ -124,21 +124,22 @@ export class RoleService {
       throw new ApiException(ApiCode.BadRequest, '系统内置角色不可分配菜单');
     }
 
-    if (dto.menuIds.length > 0) {
+    const menuIds = dto.menuIds.map((mid) => BigInt(mid));
+
+    if (menuIds.length > 0) {
       const validCount = await this.prisma.menu.count({
-        where: { id: { in: dto.menuIds } },
+        where: { id: { in: menuIds } },
       });
-      if (validCount !== dto.menuIds.length) {
+      if (validCount !== menuIds.length) {
         throw new ApiException(ApiCode.BadRequest, '部分菜单不存在');
       }
     }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.roleMenu.deleteMany({ where: { roleId: id } });
-      if (dto.menuIds.length > 0) {
-        // createMany 一次 SQL 插入，比多个 create 拼事务更高效
+      if (menuIds.length > 0) {
         await tx.roleMenu.createMany({
-          data: dto.menuIds.map((menuId) => ({
+          data: menuIds.map((menuId) => ({
             roleId: id,
             menuId,
             createdBy: operatorId,
@@ -159,20 +160,22 @@ export class RoleService {
       throw new ApiException(ApiCode.BadRequest, '系统内置角色不可分配权限');
     }
 
-    if (dto.permissionIds.length > 0) {
+    const permissionIds = dto.permissionIds.map((pid) => BigInt(pid));
+
+    if (permissionIds.length > 0) {
       const validCount = await this.prisma.permission.count({
-        where: { id: { in: dto.permissionIds } },
+        where: { id: { in: permissionIds } },
       });
-      if (validCount !== dto.permissionIds.length) {
+      if (validCount !== permissionIds.length) {
         throw new ApiException(ApiCode.BadRequest, '部分权限不存在');
       }
     }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.rolePermission.deleteMany({ where: { roleId: id } });
-      if (dto.permissionIds.length > 0) {
+      if (permissionIds.length > 0) {
         await tx.rolePermission.createMany({
-          data: dto.permissionIds.map((permissionId) => ({
+          data: permissionIds.map((permissionId) => ({
             roleId: id,
             permissionId,
             createdBy: operatorId,

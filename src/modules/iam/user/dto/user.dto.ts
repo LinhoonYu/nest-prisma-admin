@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 
 import { PagerDto } from '~/common/dto/pager.dto';
+import { BigIntOrNull, BigIntOrUndefined } from '~/common/utils/bigint';
 
 /** 手机号宽松校验：支持国际格式 +86... 或纯数字 7-15 位 */
 const PHONE_REGEX = /^\+?\d{7,15}$/;
@@ -63,9 +64,9 @@ export class CreateUserDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrNull)
   @IsOptional()
-  deptId?: bigint;
+  deptId?: bigint | null;
 
   @ApiProperty({ description: '状态：0=禁用 1=启用', default: 1 })
   @Type(() => Number)
@@ -86,10 +87,7 @@ export class CreateUserDto {
     example: '1',
   })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === null || value === undefined || value === '') return null;
-    return BigInt(value);
-  })
+  @Transform(BigIntOrNull)
   avatarFileId?: bigint | null;
 
   @ApiProperty({ description: '初始密码' })
@@ -137,9 +135,9 @@ export class UpdateUserDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrNull)
   @IsOptional()
-  deptId?: bigint;
+  deptId?: bigint | null;
 
   @ApiProperty({ description: '状态', required: false })
   @Type(() => Number)
@@ -161,10 +159,7 @@ export class UpdateUserDto {
     example: '1',
   })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === null || value === undefined || value === '') return null;
-    return BigInt(value);
-  })
+  @Transform(BigIntOrNull)
   avatarFileId?: bigint | null;
 }
 
@@ -185,7 +180,7 @@ export class UserQueryDto extends PagerDto {
     type: String,
     example: '1',
   })
-  @Type(() => BigInt)
+  @Transform(BigIntOrUndefined)
   @IsOptional()
   deptId?: bigint;
 
@@ -198,14 +193,14 @@ export class UserQueryDto extends PagerDto {
 
 export class AssignRolesDto {
   @ApiProperty({
-    description: '角色 ID 列表（BigInt 字符串数组）',
+    description: '角色 ID 列表（字符串数组）',
     type: [String],
     example: ['1', '2'],
   })
   @IsArray()
-  @IsInt({ each: true })
+  @IsString({ each: true })
   @ArrayMinSize(0)
-  roleIds: bigint[];
+  roleIds: string[];
 }
 
 export class AssignDataScopeDto {
@@ -219,15 +214,16 @@ export class AssignDataScopeDto {
   dataScope: number;
 
   @ApiProperty({
-    description: '自定义部门 ID 列表（dataScope=5 时有效，BigInt 字符串数组）',
+    description: '自定义部门 ID 列表（dataScope=5 时有效，字符串数组）',
     type: [String],
     required: false,
     example: ['1', '2'],
   })
   @IsOptional()
   @IsArray()
+  @IsString({ each: true })
   @ArrayMinSize(0)
-  deptIds?: bigint[];
+  deptIds?: string[];
 }
 
 export class ResetPasswordDto {

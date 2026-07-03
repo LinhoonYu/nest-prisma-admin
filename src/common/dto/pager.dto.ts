@@ -10,14 +10,14 @@ export class PagerDto {
   page: number = 1;
 
   @ApiProperty({
-    description: '每页条数',
+    description: '每页条数，传 0 表示不分页',
     default: 10,
-    minimum: 1,
+    minimum: 0,
     maximum: 100,
   })
   @Type(() => Number)
   @IsInt()
-  @Min(1)
+  @Min(0)
   @Max(100)
   pageSize: number = 10;
 

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
+import { UserContextService } from '~/modules/auth/user-context.service';
 import { buildTree } from '~/common/utils/build-tree';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 
@@ -12,21 +13,55 @@ const MAX_TREE_NODES = 5000;
 
 @Injectable()
 export class MenuService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private userContextService: UserContextService,
+  ) {}
 
-  async tree(query?: MenuQueryDto) {
-    // 菜单通常量不大，但仍加结果集上限保护，避免脏数据导致全表拉取
+  /**
+   * 菜单树。
+   * 超级管理员返回全部菜单（支持查询过滤，供菜单管理页使用）；
+   * 普通用户只返回其角色关联的启用菜单（供动态路由使用）。
+   */
+  async tree(query: MenuQueryDto, userId: string) {
+    const isSuperAdmin = await this.userContextService.isSuperAdmin(userId);
+
+    if (isSuperAdmin) {
+      const list = await this.prisma.menu.findMany({
+        where: {
+          ...(query?.title && {
+            title: { contains: query.title, mode: 'insensitive' },
+          }),
+          ...(query?.type !== undefined && { type: query.type }),
+          ...(query?.status !== undefined && { status: query.status }),
+        },
+        orderBy: { sort: 'asc' },
+        take: MAX_TREE_NODES,
+      });
+      return buildTree(list, { sortKey: 'sort' });
+    }
+
+    // 普通用户：按角色关联的菜单过滤，只返回启用的菜单
+    const userRoles = await this.prisma.userRole.findMany({
+      where: { userId: BigInt(userId) },
+      select: { roleId: true },
+    });
+    if (userRoles.length === 0) return [];
+
+    const roleIds = userRoles.map((ur) => ur.roleId);
+    const roleMenus = await this.prisma.roleMenu.findMany({
+      where: { roleId: { in: roleIds } },
+      select: { menuId: true },
+    });
+    if (roleMenus.length === 0) return [];
+
+    const menuIds = [...new Set(roleMenus.map((rm) => rm.menuId))];
     const list = await this.prisma.menu.findMany({
-      where: {
-        ...(query?.title && {
-          title: { contains: query.title, mode: 'insensitive' },
-        }),
-        ...(query?.type !== undefined && { type: query.type }),
-        ...(query?.status !== undefined && { status: query.status }),
-      },
+      where: { id: { in: menuIds }, status: 1 },
       orderBy: { sort: 'asc' },
       take: MAX_TREE_NODES,
     });
+
     return buildTree(list, { sortKey: 'sort' });
   }
 

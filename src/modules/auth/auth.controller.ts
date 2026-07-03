@@ -6,6 +6,11 @@ import { CurrentUser } from '~/common/decorators/current-user.decorator';
 import { JwtPayload } from '~/common/decorators/current-user.decorator';
 import { Public } from '~/common/decorators/public.decorator';
 
+import {
+  LogAction,
+  SkipOperationLog,
+} from '~/modules/log/operation-log/log-action.decorator';
+
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { PublicKeyVo } from './dto/public-key.dto';
@@ -34,6 +39,7 @@ export class AuthController {
   @Public()
   @Post('login')
   @ApiOperation({ summary: '登录' })
+  @SkipOperationLog()
   async login(@Body() dto: LoginDto, @Req() request: FastifyRequest) {
     const ip = request.ip;
     const userAgent = request.headers['user-agent'] || '';
@@ -43,12 +49,14 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @ApiOperation({ summary: '刷新令牌' })
+  @SkipOperationLog()
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto.refreshToken);
   }
 
   @Post('logout')
   @ApiOperation({ summary: '登出当前设备' })
+  @LogAction({ module: '认证', action: '登出', description: '登出当前设备' })
   async logout(
     @CurrentUser() user: JwtPayload,
     @Headers('authorization') auth: string,
@@ -59,6 +67,7 @@ export class AuthController {
 
   @Post('logout-all')
   @ApiOperation({ summary: '登出所有设备' })
+  @LogAction({ module: '认证', action: '登出', description: '登出所有设备' })
   async logoutAll(
     @CurrentUser() user: JwtPayload,
     @Headers('authorization') auth: string,

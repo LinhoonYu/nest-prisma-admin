@@ -52,4 +52,9 @@ export enum ApiCode {
   NoticeNotFound = 6001,
   NoticeAlreadyPublished = 6002,
   NoticeNotPublished = 6003,
+
+  // 系统配置相关 7xxx
+  ConfigNotFound = 7001,
+  DuplicateConfigKey = 7002,
+  SystemConfigCannotModify = 7003,
 }

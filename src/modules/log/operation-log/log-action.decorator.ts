@@ -22,3 +22,11 @@ export interface LogActionOptions {
  */
 export const LogAction = (options: LogActionOptions = {}) =>
   SetMetadata(LOG_ACTION_KEY, options);
+
+export const SKIP_OPERATION_LOG_KEY = 'skipOperationLog';
+
+/**
+ * 跳过操作日志记录，可用于控制器或方法级别。
+ * 登录、登出等认证接口已有独立的登录日志，无需重复记录。
+ */
+export const SkipOperationLog = () => SetMetadata(SKIP_OPERATION_LOG_KEY, true);

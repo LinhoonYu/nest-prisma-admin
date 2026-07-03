@@ -67,7 +67,7 @@ export class LoginLogService {
     return this.prisma.loginLog.findUnique({ where: { id } });
   }
 
-  /** 写入一条登录日志，不抛异常以免影响登录主流程 */
+  /** 直接写入登录日志（供 Consumer 使用） */
   async record(data: LoginLogRecord): Promise<void> {
     try {
       await this.prisma.loginLog.create({ data });

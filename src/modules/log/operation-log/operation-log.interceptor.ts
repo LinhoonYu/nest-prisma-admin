@@ -1,8 +1,11 @@
 import {
   CallHandler,
   ExecutionContext,
+  HttpException,
+  HttpStatus,
   Injectable,
   NestInterceptor,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FastifyReply, FastifyRequest } from 'fastify';
@@ -10,6 +13,14 @@ import { tap } from 'rxjs/operators';
 import { Observable } from 'rxjs';
 
 import { JwtPayload } from '~/common/decorators/current-user.decorator';
+import { ApiException } from '~/common/exceptions/api.exception';
+import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
+
+import {
+  EXCHANGE_LOG,
+  ROUTING_KEY_OPERATION_LOG,
+} from '~/shared/rabbitmq/rabbitmq.constants';
+import { serializeBigInt } from '~/shared/rabbitmq/utils';
 
 import { LOG_ACTION_KEY, LogActionOptions } from './log-action.decorator';
 import {
@@ -24,12 +35,17 @@ const MAX_BODY_LENGTH = 8192;
 
 @Injectable()
 export class OperationLogInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(OperationLogInterceptor.name);
+
   constructor(
+    private readonly amqpConnection: AmqpConnection,
     private readonly operationLogService: OperationLogService,
     private readonly reflector: Reflector,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    if (context.getType() !== 'http') return next.handle();
+
     const options = this.reflector.get<LogActionOptions>(
       LOG_ACTION_KEY,
       context.getHandler(),
@@ -67,9 +83,22 @@ export class OperationLogInterceptor implements NestInterceptor {
           ).catch(() => {});
         },
         error: (err: unknown) => {
-          this.write(request, 500, false, err, startedAt, user, merged).catch(
-            () => {},
-          );
+          // 与 AllExceptionFilter 的状态码逻辑保持一致
+          const statusCode =
+            err instanceof ApiException
+              ? HttpStatus.OK
+              : err instanceof HttpException
+                ? err.getStatus()
+                : HttpStatus.INTERNAL_SERVER_ERROR;
+          this.write(
+            request,
+            statusCode,
+            false,
+            err,
+            startedAt,
+            user,
+            merged,
+          ).catch(() => {});
         },
       }),
     );
@@ -116,7 +145,23 @@ export class OperationLogInterceptor implements NestInterceptor {
       durationMs,
     };
 
-    await this.operationLogService.record(record);
+    const payload = serializeBigInt(record);
+
+    try {
+      await this.amqpConnection.publish(
+        EXCHANGE_LOG,
+        ROUTING_KEY_OPERATION_LOG,
+        payload,
+        { persistent: true },
+      );
+    } catch (e) {
+      // MQ 不可用时降级为同步写入，保证日志不丢
+      this.logger.warn(
+        `Failed to publish operation log to MQ: ${(e as Error).message}. Falling back to direct record.`,
+      );
+      // 降级：直接写入数据库
+      await this.operationLogService.record(record);
+    }
   }
 
   /** 超长内容截断，避免单个日志记录过大 */

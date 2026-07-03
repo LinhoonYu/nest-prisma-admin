@@ -43,107 +43,121 @@ export class AuthService {
   }
 
   async login(dto: LoginDto, ip: string, userAgent: string) {
-    if (this.securityConfig.captcha.enabled) {
-      if (!dto.captchaKey || !dto.captchaCode) {
-        throw new ApiException(ApiCode.CaptchaError, '请输入验证码');
+    try {
+      if (this.securityConfig.captcha.enabled) {
+        if (!dto.captchaKey || !dto.captchaCode) {
+          throw new ApiException(ApiCode.CaptchaError, '请输入验证码');
+        }
+        await this.captchaService.verify(dto.captchaKey, dto.captchaCode);
       }
-      await this.captchaService.verify(dto.captchaKey, dto.captchaCode);
-    }
 
-    const user = await this.prisma.user.findFirst({
-      where: { username: dto.username, deletedId: 0n },
-    });
-    if (!user) {
-      throw new ApiException(
-        ApiCode.AccountOrPasswordError,
-        '用户名或密码错误',
-      );
-    }
-
-    if (user.status === 0) {
-      throw new ApiException(ApiCode.AccountDisabled, '账号已禁用');
-    }
-
-    // RSA 启用时解密 encPassword，否则用明文 password
-    if (this.securityConfig.rsa.enabled) {
-      if (!dto.encPassword) {
-        throw new ApiException(ApiCode.BadRequest, '加密密码不能为空');
+      const user = await this.prisma.user.findFirst({
+        where: { username: dto.username, deletedId: 0n },
+      });
+      if (!user) {
+        throw new ApiException(
+          ApiCode.AccountOrPasswordError,
+          '用户名或密码错误',
+        );
       }
-      dto.password = await this.rsaService.decrypt(dto.encPassword);
-    } else if (!dto.password) {
-      throw new ApiException(ApiCode.BadRequest, '密码不能为空');
-    }
 
-    if (await this.passwordService.isLocked(user.id)) {
-      const minutes = await this.passwordService.getLockedRemainingMinutes(
-        user.id,
+      if (user.status === 0) {
+        throw new ApiException(ApiCode.AccountDisabled, '账号已禁用');
+      }
+
+      // RSA 启用时解密 encPassword，否则用明文 password
+      if (this.securityConfig.rsa.enabled) {
+        if (!dto.encPassword) {
+          throw new ApiException(ApiCode.BadRequest, '加密密码不能为空');
+        }
+        dto.password = await this.rsaService.decrypt(dto.encPassword);
+      } else if (!dto.password) {
+        throw new ApiException(ApiCode.BadRequest, '密码不能为空');
+      }
+
+      if (await this.passwordService.isLocked(user.id)) {
+        const minutes = await this.passwordService.getLockedRemainingMinutes(
+          user.id,
+        );
+        throw new ApiException(
+          ApiCode.AccountLocked,
+          `账号已锁定，请 ${minutes} 分钟后重试`,
+        );
+      }
+
+      const credential = await this.passwordService.getCredential(user.id);
+      const verified = await this.passwordService.compare(
+        dto.password,
+        credential.passwordHash,
       );
-      throw new ApiException(
-        ApiCode.AccountLocked,
-        `账号已锁定，请 ${minutes} 分钟后重试`,
+      if (!verified) {
+        await this.passwordService.recordFailure(user.id);
+        throw new ApiException(
+          ApiCode.AccountOrPasswordError,
+          '用户名或密码错误',
+        );
+      }
+
+      await this.passwordService.recordSuccess(user.id);
+
+      if (!this.appConfig.multiDeviceLogin) {
+        await this.sessionService.revokeByUser(user.id, 'Single device login');
+      }
+
+      const deviceName = this.parseDeviceName(userAgent);
+      const session = await this.sessionService.create({
+        userId: user.id,
+        loginType: LOGIN_TYPE_PASSWORD,
+        ip,
+        userAgent,
+        deviceName,
+      });
+
+      const userIdStr = user.id.toString();
+      const sessionIdStr = session.toString();
+      const familyId = sessionIdStr;
+
+      const accessToken = this.tokenService.signAccess(userIdStr, sessionIdStr);
+      const refreshToken = await this.tokenService.signRefresh(
+        userIdStr,
+        sessionIdStr,
+        familyId,
       );
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          lastLoginAt: new Date(),
+          lastLoginIp: ip,
+        },
+      });
+
+      this.eventEmitter.emit('auth.login', {
+        userId: user.id,
+        username: user.username,
+        loginType: LOGIN_TYPE_PASSWORD,
+        ip,
+        userAgent,
+        status: 1,
+      });
+
+      return {
+        accessToken,
+        refreshToken,
+        mustChangePassword: credential.mustChangePassword,
+      };
+    } catch (e) {
+      // 登录失败也记录日志
+      this.eventEmitter.emit('auth.login', {
+        username: dto.username,
+        loginType: LOGIN_TYPE_PASSWORD,
+        ip,
+        userAgent,
+        status: 0,
+        failureReason: e instanceof Error ? e.message : String(e),
+      });
+      throw e;
     }
-
-    const credential = await this.passwordService.getCredential(user.id);
-    const verified = await this.passwordService.compare(
-      dto.password,
-      credential.passwordHash,
-    );
-    if (!verified) {
-      await this.passwordService.recordFailure(user.id);
-      throw new ApiException(
-        ApiCode.AccountOrPasswordError,
-        '用户名或密码错误',
-      );
-    }
-
-    await this.passwordService.recordSuccess(user.id);
-
-    if (!this.appConfig.multiDeviceLogin) {
-      await this.sessionService.revokeByUser(user.id, 'Single device login');
-    }
-
-    const deviceName = this.parseDeviceName(userAgent);
-    const session = await this.sessionService.create({
-      userId: user.id,
-      loginType: LOGIN_TYPE_PASSWORD,
-      ip,
-      userAgent,
-      deviceName,
-    });
-
-    const userIdStr = user.id.toString();
-    const sessionIdStr = session.toString();
-    const familyId = sessionIdStr;
-
-    const accessToken = this.tokenService.signAccess(userIdStr, sessionIdStr);
-    const refreshToken = await this.tokenService.signRefresh(
-      userIdStr,
-      sessionIdStr,
-      familyId,
-    );
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        lastLoginAt: new Date(),
-        lastLoginIp: ip,
-      },
-    });
-
-    this.eventEmitter.emit('auth.login', {
-      userId: user.id,
-      username: user.username,
-      ip,
-      userAgent,
-      status: 1,
-    });
-
-    return {
-      accessToken,
-      refreshToken,
-      mustChangePassword: credential.mustChangePassword,
-    };
   }
 
   async refresh(refreshToken: string) {

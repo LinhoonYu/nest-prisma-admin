@@ -21,6 +21,15 @@ export class AllExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost) {
+    // 非 HTTP 上下文（如 RabbitMQ 消费者）只记录日志，不尝试发送 HTTP 响应
+    if (host.getType() !== 'http') {
+      const message =
+        exception instanceof Error ? exception.message : String(exception);
+      const stack = exception instanceof Error ? exception.stack : undefined;
+      this.logger.error(message, stack);
+      return;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<FastifyReply>();
     const request = ctx.getRequest<FastifyRequest>();

@@ -11,12 +11,14 @@ import { NoticeModule } from './modules/notice/notice.module';
 import { WsModule } from './modules/ws/ws.module';
 import {
   AppConfig,
+  RabbitmqConfig,
   SecurityConfig,
   StorageConfig,
   SwaggerConfig,
 } from '~/config';
 import { HealthModule } from '~/global/health/health.module';
 import { PrismaModule } from '~/shared/prisma/prisma.module';
+import { RabbitmqModule } from '~/shared/rabbitmq/rabbitmq.module';
 import { RedisModule } from '~/shared/redis/redis.module';
 import { S3Module } from '~/shared/s3/s3.module';
 
@@ -24,11 +26,18 @@ import { S3Module } from '~/shared/s3/s3.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [AppConfig, SecurityConfig, StorageConfig, SwaggerConfig],
+      load: [
+        AppConfig,
+        RabbitmqConfig,
+        SecurityConfig,
+        StorageConfig,
+        SwaggerConfig,
+      ],
       envFilePath: ['.env.local', '.env'],
     }),
     EventEmitterModule.forRoot(),
     PrismaModule,
+    RabbitmqModule,
     RedisModule,
     S3Module,
     HealthModule,

@@ -11,6 +11,7 @@ import { AuthService } from './auth.service';
 import { CaptchaService } from './captcha.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { LocalStrategy } from './strategies/local.strategy';
 import { PasswordService } from './password.service';
 import { RsaService } from './rsa.service';
 import { SessionService } from './session.service';
@@ -49,6 +50,7 @@ import { UserContextService } from './user-context.service';
     RsaService,
     UserContextService,
     JwtStrategy,
+    LocalStrategy,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

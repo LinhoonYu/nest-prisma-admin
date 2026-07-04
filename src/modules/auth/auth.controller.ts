@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Headers, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FastifyRequest } from 'fastify';
 
@@ -12,6 +20,8 @@ import {
 } from '~/modules/log/operation-log/log-action.decorator';
 
 import { AuthService } from './auth.service';
+import { LocalAuthGuard } from './guards/local-auth.guard';
+import type { LocalUser } from './strategies/local.strategy';
 import { LoginDto } from './dto/login.dto';
 import { PublicKeyVo } from './dto/public-key.dto';
 import { RefreshDto } from './dto/refresh.dto';
@@ -38,12 +48,18 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  @UseGuards(LocalAuthGuard)
   @ApiOperation({ summary: '登录' })
   @SkipOperationLog()
-  async login(@Body() dto: LoginDto, @Req() request: FastifyRequest) {
+  async login(
+    @Req() request: FastifyRequest,
+    // DTO 仅触发 ValidationPipe 校验，认证逻辑在 LocalAuthGuard/LocalStrategy 中
+    @Body() _dto: LoginDto,
+  ) {
+    const user = request.user as unknown as LocalUser;
     const ip = request.ip;
     const userAgent = request.headers['user-agent'] || '';
-    return this.authService.login(dto, ip, userAgent);
+    return this.authService.login(user, ip, userAgent);
   }
 
   @Public()

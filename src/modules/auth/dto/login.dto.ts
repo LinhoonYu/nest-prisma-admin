@@ -8,19 +8,14 @@ export class LoginDto {
   @MaxLength(64)
   username: string;
 
-  @ApiPropertyOptional({ description: '明文密码（RSA 关闭时使用，开发环境）' })
-  @IsString()
-  @MinLength(6)
-  @MaxLength(128)
-  @IsOptional()
-  password?: string;
-
-  @ApiPropertyOptional({
-    description: 'RSA 加密后的密码（Base64 编码），RSA 开启时必传',
+  @ApiProperty({
+    description: '密码（RSA 关闭时为明文，开启时为加密密文）',
+    example: '123456',
   })
   @IsString()
-  @IsOptional()
-  encPassword?: string;
+  @MinLength(1)
+  @MaxLength(512)
+  password: string;
 
   @ApiPropertyOptional({ description: '验证码 key' })
   @IsString()

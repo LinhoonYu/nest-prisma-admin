@@ -9,6 +9,7 @@ export interface LoginEventPayload {
   userId?: bigint;
   username: string;
   loginType: number;
+  provider?: string;
   ip: string;
   userAgent: string;
   status: number;
@@ -31,6 +32,7 @@ export class LoginLogListener {
       userId: payload.userId,
       username: payload.username,
       loginType: payload.loginType,
+      provider: payload.provider,
       ip: payload.ip,
       userAgent: payload.userAgent,
       browser: parser.getBrowser().name || undefined,

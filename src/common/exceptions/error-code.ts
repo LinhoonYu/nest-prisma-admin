@@ -57,4 +57,12 @@ export enum ApiCode {
   ConfigNotFound = 7001,
   DuplicateConfigKey = 7002,
   SystemConfigCannotModify = 7003,
+
+  // OAuth 相关 8xxx
+  OAuthProviderDisabled = 8001,
+  OAuthProviderNotFound = 8002,
+  OAuthStateInvalid = 8003,
+  OAuthCodeExchangeFailed = 8004,
+  OAuthUserInfoFailed = 8005,
+  OAuthExchangeCodeInvalid = 8006,
 }

@@ -12,6 +12,7 @@ import { NoticeModule } from './modules/notice/notice.module';
 import { WsModule } from './modules/ws/ws.module';
 import {
   AppConfig,
+  OauthConfig,
   RabbitmqConfig,
   SecurityConfig,
   StorageConfig,
@@ -29,6 +30,7 @@ import { S3Module } from '~/shared/s3/s3.module';
       isGlobal: true,
       load: [
         AppConfig,
+        OauthConfig,
         RabbitmqConfig,
         SecurityConfig,
         StorageConfig,

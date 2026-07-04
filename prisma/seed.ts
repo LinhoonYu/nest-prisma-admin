@@ -954,6 +954,27 @@ async function main() {
   console.log(
     `Seed completed: user=${user.username}, role=${role.code}, menus=${menuIds.length}, permissions=${permIds.length}, dictTypes=${dictTypeCount}, dictItems=${dictItemCount}`,
   );
+
+  // 9. 创建 OAuth 提供商
+  const authProviders = [
+    {
+      code: 'google',
+      name: 'Google',
+      type: 1,
+      issuer: 'https://accounts.google.com',
+    },
+    { code: 'github', name: 'GitHub', type: 1, issuer: 'https://github.com' },
+    { code: 'gitee', name: 'Gitee', type: 1, issuer: 'https://gitee.com' },
+  ];
+
+  for (const p of authProviders) {
+    await prisma.authProvider.upsert({
+      where: { code: p.code },
+      update: { name: p.name, type: p.type, issuer: p.issuer, status: 1 },
+      create: { ...p, status: 1 },
+    });
+  }
+  console.log(`Auth providers created: ${authProviders.length}`);
 }
 
 main()

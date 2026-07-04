@@ -1,4 +1,5 @@
 import { AppConfig, appRegToken, IAppConfig } from './app.config';
+import { IOauthConfig, OauthConfig, oauthRegToken } from './oauth.config';
 import {
   IRabbitmqConfig,
   RabbitmqConfig,
@@ -21,6 +22,7 @@ import {
 } from './swagger.config';
 
 export * from './app.config';
+export * from './oauth.config';
 export * from './rabbitmq.config';
 export * from './security.config';
 export * from './storage.config';
@@ -28,6 +30,7 @@ export * from './swagger.config';
 
 export interface AllConfigType {
   [appRegToken]: IAppConfig;
+  [oauthRegToken]: IOauthConfig;
   [rabbitmqRegToken]: IRabbitmqConfig;
   [securityRegToken]: ISecurityConfig;
   [storageRegToken]: IStorageConfig;
@@ -36,6 +39,7 @@ export interface AllConfigType {
 
 export default {
   AppConfig,
+  OauthConfig,
   RabbitmqConfig,
   SecurityConfig,
   StorageConfig,

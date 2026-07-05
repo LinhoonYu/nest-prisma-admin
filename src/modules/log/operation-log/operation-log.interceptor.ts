@@ -5,7 +5,6 @@ import {
   HttpStatus,
   Injectable,
   NestInterceptor,
-  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FastifyReply, FastifyRequest } from 'fastify';
@@ -14,6 +13,7 @@ import { Observable } from 'rxjs';
 
 import { JwtPayload } from '~/common/decorators/current-user.decorator';
 import { ApiException } from '~/common/exceptions/api.exception';
+import { AppLogger } from '~/common/logger/app-logger';
 import { UserContextService } from '~/modules/auth/user-context.service';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 
@@ -53,14 +53,15 @@ const ACTION_BY_METHOD: Record<string, string> = {
 
 @Injectable()
 export class OperationLogInterceptor implements NestInterceptor {
-  private readonly logger = new Logger(OperationLogInterceptor.name);
-
   constructor(
     private readonly amqpConnection: AmqpConnection,
     private readonly operationLogService: OperationLogService,
     private readonly userContextService: UserContextService,
     private readonly reflector: Reflector,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(OperationLogInterceptor.name);
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     if (context.getType() !== 'http') return next.handle();

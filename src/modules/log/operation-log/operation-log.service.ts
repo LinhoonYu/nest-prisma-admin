@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
+import { AppLogger } from '~/common/logger/app-logger';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 
 import {
@@ -28,9 +29,12 @@ export interface OperationLogRecord {
 
 @Injectable()
 export class OperationLogService {
-  private readonly logger = new Logger(OperationLogService.name);
-
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(OperationLogService.name);
+  }
 
   async list(query: OperationLogQueryDto) {
     const {
@@ -91,7 +95,7 @@ export class OperationLogService {
     } catch (e) {
       this.logger.error(
         `Failed to record operation log: ${(e as Error).message}`,
-        (e as Error).stack,
+        { error: e as Error },
       );
     }
   }

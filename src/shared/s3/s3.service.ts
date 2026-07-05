@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -10,13 +10,18 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
 
 import { IStorageConfig, StorageConfig } from '~/config';
+import { AppLogger } from '~/common/logger/app-logger';
 
 @Injectable()
 export class S3Service implements OnModuleInit {
-  private readonly logger = new Logger(S3Service.name);
   private client!: S3Client;
 
-  constructor(@Inject(StorageConfig.KEY) private config: IStorageConfig) {}
+  constructor(
+    @Inject(StorageConfig.KEY) private config: IStorageConfig,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(S3Service.name);
+  }
 
   async onModuleInit() {
     this.client = new S3Client({
@@ -33,7 +38,7 @@ export class S3Service implements OnModuleInit {
       await this.client.send(
         new HeadBucketCommand({ Bucket: this.config.bucket }),
       );
-      this.logger.log(
+      this.logger.info(
         `S3 连接正常: ${this.config.endpoint}/${this.config.bucket}`,
       );
     } catch (err) {

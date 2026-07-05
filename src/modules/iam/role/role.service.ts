@@ -70,8 +70,11 @@ export class RoleService {
   async update(id: bigint, dto: UpdateRoleDto, operatorId: bigint) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new ApiException(ApiCode.RoleNotFound, '角色不存在');
-    if (role.isSystem) {
-      throw new ApiException(ApiCode.BadRequest, '系统内置角色不可修改');
+    if (role.isSystem && dto.code !== undefined && dto.code !== role.code) {
+      throw new ApiException(
+        ApiCode.SystemDataCodeImmutable,
+        '系统内置角色编码不可修改',
+      );
     }
 
     if (dto.code !== undefined && dto.code !== role.code) {
@@ -120,9 +123,6 @@ export class RoleService {
   async assignMenus(id: bigint, dto: AssignMenusDto, operatorId: bigint) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new ApiException(ApiCode.RoleNotFound, '角色不存在');
-    if (role.isSystem) {
-      throw new ApiException(ApiCode.BadRequest, '系统内置角色不可分配菜单');
-    }
 
     const menuIds = dto.menuIds.map((mid) => BigInt(mid));
 
@@ -156,9 +156,6 @@ export class RoleService {
   ) {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new ApiException(ApiCode.RoleNotFound, '角色不存在');
-    if (role.isSystem) {
-      throw new ApiException(ApiCode.BadRequest, '系统内置角色不可分配权限');
-    }
 
     const permissionIds = dto.permissionIds.map((pid) => BigInt(pid));
 

@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { extname } from 'path';
 import { nanoid } from 'nanoid';
 import { Readable } from 'stream';
@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
+import { AppLogger } from '~/common/logger/app-logger';
 import { IStorageConfig, StorageConfig } from '~/config';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { S3Service } from '~/shared/s3/s3.service';
@@ -18,13 +19,14 @@ export interface UploadedFile {
 
 @Injectable()
 export class FileService {
-  private readonly logger = new Logger(FileService.name);
-
   constructor(
     private prisma: PrismaService,
     private s3: S3Service,
     @Inject(StorageConfig.KEY) private storageConfig: IStorageConfig,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(FileService.name);
+  }
 
   async upload(file: UploadedFile, userId: bigint) {
     if (file.buffer.length > this.storageConfig.maxFileSize * 1024 * 1024) {
@@ -61,7 +63,9 @@ export class FileService {
         url: `/api/v1/files/proxy/${record.id}`,
       };
     } catch (err) {
-      this.logger.error(`DB 记录创建失败，回滚 S3 文件: ${key}`, err);
+      this.logger.error(`DB 记录创建失败，回滚 S3 文件: ${key}`, {
+        error: err,
+      });
       await this.s3.delete(key).catch(() => undefined);
       throw err;
     }
@@ -76,7 +80,9 @@ export class FileService {
 
     await this.prisma.file.delete({ where: { id: file.id } });
     await this.s3.delete(key).catch((err) => {
-      this.logger.warn(`S3 文件删除失败（DB 记录已删，待清理）: ${key}`, err);
+      this.logger.warn(`S3 文件删除失败（DB 记录已删，待清理）: ${key}`, {
+        error: err,
+      });
     });
   }
 

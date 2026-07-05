@@ -4,11 +4,11 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { FastifyReply, FastifyRequest } from 'fastify';
 
 import { ApiException } from '~/common/exceptions/api.exception';
+import { AppLogger } from '~/common/logger/app-logger';
 
 interface ErrorResponse {
   code: number;
@@ -18,15 +18,19 @@ interface ErrorResponse {
 
 @Catch()
 export class AllExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionFilter.name);
+  constructor(private readonly logger: AppLogger) {
+    this.logger.setContext(AllExceptionFilter.name);
+  }
 
   catch(exception: unknown, host: ArgumentsHost) {
     // 非 HTTP 上下文（如 RabbitMQ 消费者）只记录日志，不尝试发送 HTTP 响应
     if (host.getType() !== 'http') {
       const message =
         exception instanceof Error ? exception.message : String(exception);
-      const stack = exception instanceof Error ? exception.stack : undefined;
-      this.logger.error(message, stack);
+      this.logger.error(
+        message,
+        exception instanceof Error ? { error: exception } : undefined,
+      );
       return;
     }
 
@@ -59,7 +63,9 @@ export class AllExceptionFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       errorResponse.message = exception.message;
-      this.logger.error(`${request.method} ${request.url}`, exception.stack);
+      this.logger.error(`${request.method} ${request.url}`, {
+        error: exception,
+      });
     }
 
     response.status(status).send(errorResponse);

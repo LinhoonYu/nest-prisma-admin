@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { UAParser } from 'ua-parser-js';
 
+import { AppLogger } from '~/common/logger/app-logger';
 import { LoginLogProducer } from './login-log.producer';
 import { LoginLogRecord, LoginLogService } from './login-log.service';
 
@@ -18,12 +19,13 @@ export interface LoginEventPayload {
 
 @Injectable()
 export class LoginLogListener {
-  private readonly logger = new Logger(LoginLogListener.name);
-
   constructor(
     private loginLogProducer: LoginLogProducer,
     private loginLogService: LoginLogService,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(LoginLogListener.name);
+  }
 
   @OnEvent('auth.login')
   async handleLoginEvent(payload: LoginEventPayload) {

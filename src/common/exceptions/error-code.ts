@@ -21,6 +21,7 @@ export enum ApiCode {
   DuplicateEmail = 1011,
   AccountLocked = 1012,
   BadRequest = 1013,
+  SystemDataCodeImmutable = 1014,
 
   // 权限相关 2xxx
   NoPermission = 2001,

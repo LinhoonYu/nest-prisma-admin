@@ -1,7 +1,8 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 
+import { AppLogger } from '~/common/logger/app-logger';
 import { PrismaClient } from '~/generated/prisma/client';
 import { isDev } from '~/global/env';
 
@@ -9,10 +10,12 @@ import { softDeleteExtension } from './soft-delete.extension';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
-  private readonly logger = new Logger(PrismaService.name);
   private readonly _extended = this.$extends(softDeleteExtension(this));
 
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly logger: AppLogger,
+  ) {
     const url = configService.get<string>('DATABASE_URL');
     if (!url) throw new Error('DATABASE_URL is not configured');
 
@@ -20,6 +23,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       adapter: new PrismaPg({ connectionString: url }),
       log: isDev ? ['query', 'info', 'warn', 'error'] : ['warn', 'error'],
     });
+
+    this.logger.setContext(PrismaService.name);
 
     // 优先将属性访问转发到扩展后的 client，使 query 拦截自动生效。
     // _extended 上有 model delegate 和 Prisma 方法（$transaction 等），
@@ -37,6 +42,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 
   async onModuleInit() {
     await this.$connect();
-    this.logger.log('Prisma client connected');
+    this.logger.info('Prisma client connected');
   }
 }

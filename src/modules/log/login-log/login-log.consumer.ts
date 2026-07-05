@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 
+import { AppLogger } from '~/common/logger/app-logger';
 import {
   EXCHANGE_LOG,
   EXCHANGE_LOG_DLX,
@@ -14,9 +15,12 @@ import { LoginLogRecord, LoginLogService } from './login-log.service';
 
 @Injectable()
 export class LoginLogConsumer {
-  private readonly logger = new Logger(LoginLogConsumer.name);
-
-  constructor(private loginLogService: LoginLogService) {}
+  constructor(
+    private loginLogService: LoginLogService,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(LoginLogConsumer.name);
+  }
 
   @RabbitSubscribe({
     exchange: EXCHANGE_LOG,
@@ -37,10 +41,9 @@ export class LoginLogConsumer {
       );
     } catch (e: unknown) {
       const err = e instanceof Error ? e : new Error(String(e));
-      this.logger.error(
-        `Failed to process login log: ${err.message}`,
-        err.stack,
-      );
+      this.logger.error(`Failed to process login log: ${err.message}`, {
+        error: err,
+      });
       throw e;
     }
   }

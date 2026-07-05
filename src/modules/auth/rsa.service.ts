@@ -1,7 +1,6 @@
 import {
   Inject,
   Injectable,
-  Logger,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
@@ -10,6 +9,7 @@ import { promisify } from 'node:util';
 
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
+import { AppLogger } from '~/common/logger/app-logger';
 import { ISecurityConfig, SecurityConfig } from '~/config';
 import { RedisService } from '~/shared/redis/redis.service';
 
@@ -24,14 +24,16 @@ const RSA_OLD_KEY = 'rsa:old';
 
 @Injectable()
 export class RsaService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(RsaService.name);
   private rotateTimer: NodeJS.Timeout | null = null;
 
   constructor(
     @Inject(SecurityConfig.KEY)
     private readonly securityConfig: ISecurityConfig,
     private readonly redis: RedisService,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(RsaService.name);
+  }
 
   async onModuleInit(): Promise<void> {
     if (!this.securityConfig.rsa.enabled) return;
@@ -45,7 +47,7 @@ export class RsaService implements OnModuleInit, OnModuleDestroy {
 
     this.scheduleNextRotation();
 
-    this.logger.log(
+    this.logger.info(
       `RSA service initialized: RSA-OAEP/SHA-256, ` +
         `keyBits=${this.securityConfig.rsa.keyBits}, ` +
         `ttl=${this.securityConfig.rsa.ttlSeconds}s, ` +
@@ -104,10 +106,9 @@ export class RsaService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.rotateKeyPair();
     } catch (err) {
-      this.logger.error(
-        `RSA rotation failed: ${(err as Error).message}`,
-        (err as Error).stack,
-      );
+      this.logger.error(`RSA rotation failed: ${(err as Error).message}`, {
+        error: err,
+      });
     }
     this.scheduleNextRotation();
   }

@@ -217,10 +217,9 @@ export class NoticeService {
     if (notice.targetType === 1) {
       this.wsGateway.broadcast('notice', payload);
     } else {
-      const userIds = (notice.targetUserIds as number[]) ?? [];
-      for (const uid of userIds) {
-        this.wsGateway.sendToUser(uid.toString(), 'notice', payload);
-      }
+      const raw = notice.targetUserIds;
+      const userIds = Array.isArray(raw) ? (raw as number[]) : [];
+      this.wsGateway.sendToUsers(userIds, 'notice', payload);
     }
   }
 
@@ -234,10 +233,9 @@ export class NoticeService {
     if (notice.targetType === 1) {
       this.wsGateway.broadcast('notice-revoke', payload);
     } else {
-      const userIds = (notice.targetUserIds as number[]) ?? [];
-      for (const uid of userIds) {
-        this.wsGateway.sendToUser(uid.toString(), 'notice-revoke', payload);
-      }
+      const raw = notice.targetUserIds;
+      const userIds = Array.isArray(raw) ? (raw as number[]) : [];
+      this.wsGateway.sendToUsers(userIds, 'notice-revoke', payload);
     }
   }
 }

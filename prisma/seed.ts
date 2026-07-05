@@ -3,21 +3,15 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
 
-import { PrismaClient } from '../src/generated/prisma/client';
+import { Prisma, PrismaClient } from '../src/generated/prisma/client';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
 });
 
-// ============================================
-// 类型常量
-// ============================================
 const MENU_DIR = 1;
 const MENU_PAGE = 2;
 
-// ============================================
-// 菜单定义
-// ============================================
 interface MenuSeed {
   name: string;
   title: string;
@@ -35,7 +29,7 @@ const menuTree: MenuSeed[] = [
     name: 'System',
     title: '系统管理',
     path: '/system',
-    icon: 'el-icon-Operation',
+    icon: 'system',
     type: MENU_DIR,
     sort: 10,
     children: [
@@ -53,7 +47,7 @@ const menuTree: MenuSeed[] = [
         title: '角色管理',
         path: 'role',
         component: 'system/role/index',
-        icon: 'el-icon-Avatar',
+        icon: 'role',
         type: MENU_PAGE,
         sort: 2,
       },
@@ -62,7 +56,7 @@ const menuTree: MenuSeed[] = [
         title: '菜单管理',
         path: 'menu',
         component: 'system/menu/index',
-        icon: 'el-icon-Menu',
+        icon: 'menu',
         type: MENU_PAGE,
         sort: 3,
       },
@@ -80,7 +74,7 @@ const menuTree: MenuSeed[] = [
         title: '部门管理',
         path: 'dept',
         component: 'system/dept/index',
-        icon: 'el-icon-OfficeBuilding',
+        icon: 'tree',
         type: MENU_PAGE,
         sort: 5,
       },
@@ -90,7 +84,7 @@ const menuTree: MenuSeed[] = [
     name: 'App',
     title: '应用设置',
     path: '/app',
-    icon: 'el-icon-Tools',
+    icon: 'setting',
     type: MENU_DIR,
     sort: 20,
     children: [
@@ -127,7 +121,7 @@ const menuTree: MenuSeed[] = [
     name: 'Log',
     title: '日志中心',
     path: '/log',
-    icon: 'el-icon-Document',
+    icon: 'document',
     type: MENU_DIR,
     sort: 30,
     children: [
@@ -136,7 +130,7 @@ const menuTree: MenuSeed[] = [
         title: '登录日志',
         path: 'login-log',
         component: 'system/login-log/index',
-        icon: 'el-icon-Login',
+        icon: 'el-icon-Document',
         type: MENU_PAGE,
         sort: 1,
       },
@@ -145,7 +139,7 @@ const menuTree: MenuSeed[] = [
         title: '操作日志',
         path: 'operation-log',
         component: 'system/operation-log/index',
-        icon: 'el-icon-List',
+        icon: 'el-icon-DocumentCopy',
         type: MENU_PAGE,
         sort: 2,
       },
@@ -153,9 +147,6 @@ const menuTree: MenuSeed[] = [
   },
 ];
 
-// ============================================
-// 权限定义
-// ============================================
 interface PermSeed {
   code: string;
   name: string;
@@ -640,7 +631,7 @@ const permissions: PermSeed[] = [
   {
     code: 'sys:config:list',
     name: '配置列表',
-    group: '系统配置',
+    group: '配置管理',
     method: 'GET',
     path: '/api/v1/configs',
     sort: 100,
@@ -648,7 +639,7 @@ const permissions: PermSeed[] = [
   {
     code: 'sys:config:create',
     name: '新增配置',
-    group: '系统配置',
+    group: '配置管理',
     method: 'POST',
     path: '/api/v1/configs',
     sort: 101,
@@ -656,7 +647,7 @@ const permissions: PermSeed[] = [
   {
     code: 'sys:config:read',
     name: '配置详情',
-    group: '系统配置',
+    group: '配置管理',
     method: 'GET',
     path: '/api/v1/configs/:id',
     sort: 102,
@@ -664,7 +655,7 @@ const permissions: PermSeed[] = [
   {
     code: 'sys:config:update',
     name: '修改配置',
-    group: '系统配置',
+    group: '配置管理',
     method: 'PUT',
     path: '/api/v1/configs/:id',
     sort: 103,
@@ -672,7 +663,7 @@ const permissions: PermSeed[] = [
   {
     code: 'sys:config:delete',
     name: '删除配置',
-    group: '系统配置',
+    group: '配置管理',
     method: 'DELETE',
     path: '/api/v1/configs/:id',
     sort: 104,
@@ -680,16 +671,13 @@ const permissions: PermSeed[] = [
   {
     code: 'sys:config:refresh',
     name: '刷新配置缓存',
-    group: '系统配置',
+    group: '配置管理',
     method: 'PUT',
     path: '/api/v1/configs/refresh',
     sort: 105,
   },
 ];
 
-// ============================================
-// 字典定义
-// ============================================
 interface DictTypeSeed {
   code: string;
   name: string;
@@ -733,26 +721,17 @@ const dictTypes: DictTypeSeed[] = [
   },
 ];
 
-// ============================================
-// 递归创建菜单，返回所有菜单 ID
-// ============================================
 async function createMenus(
+  tx: Prisma.TransactionClient,
   items: MenuSeed[],
   parentId?: bigint,
 ): Promise<bigint[]> {
   const ids: bigint[] = [];
 
   for (const item of items) {
-    const existing = await prisma.menu.findFirst({
-      where: { name: item.name, deletedId: 0n },
-      select: { id: true },
-    });
-
-    let menuId: bigint;
-    const data = {
+    const baseData = {
       parentId: parentId ?? null,
       type: item.type,
-      name: item.name,
       title: item.title,
       path: item.path,
       component: item.component ?? null,
@@ -762,18 +741,16 @@ async function createMenus(
       status: 1,
     };
 
-    if (existing) {
-      menuId = existing.id;
-      await prisma.menu.update({ where: { id: menuId }, data });
-    } else {
-      const created = await prisma.menu.create({ data });
-      menuId = created.id;
-    }
+    const menu = await tx.menu.upsert({
+      where: { name_deletedId: { name: item.name, deletedId: 0n } },
+      update: baseData,
+      create: { ...baseData, name: item.name },
+    });
 
-    ids.push(menuId);
+    ids.push(menu.id);
 
     if (item.children?.length) {
-      const childIds = await createMenus(item.children, menuId);
+      const childIds = await createMenus(tx, item.children, menu.id);
       ids.push(...childIds);
     }
   }
@@ -781,200 +758,172 @@ async function createMenus(
   return ids;
 }
 
+const authProviders = [
+  {
+    code: 'google',
+    name: 'Google',
+    type: 1,
+    issuer: 'https://accounts.google.com',
+  },
+  { code: 'github', name: 'GitHub', type: 1, issuer: 'https://github.com' },
+  { code: 'gitee', name: 'Gitee', type: 1, issuer: 'https://gitee.com' },
+];
+
 async function main() {
-  // 1. 创建管理员用户
   const username = 'admin';
   const password = process.env.SEED_ADMIN_PASSWORD || 'admin123';
-  const passwordHash = await bcrypt.hash(password, 10);
 
-  const user = await prisma.user.upsert({
-    where: { username_deletedId: { username, deletedId: 0n } },
-    update: {},
-    create: {
-      username,
-      nickname: '超级管理员',
-      isSuperAdmin: true,
-      status: 1,
-      dataScope: 1,
-    },
-  });
-
-  await prisma.userCredential.upsert({
-    where: { userId: user.id },
-    update: {},
-    create: {
-      userId: user.id,
-      passwordHash,
-      passwordAlgo: 'bcrypt',
-    },
-  });
-
-  // 2. 创建菜单
-  const menuIds = await createMenus(menuTree);
-  console.log(`Menus created: ${menuIds.length}`);
-
-  // 3. 创建权限
-  const permIds: bigint[] = [];
-  for (const perm of permissions) {
-    const existing = await prisma.permission.findFirst({
-      where: { code: perm.code, deletedId: 0n },
-      select: { id: true },
-    });
-
-    if (existing) {
-      permIds.push(existing.id);
-      await prisma.permission.update({
-        where: { id: existing.id },
-        data: {
-          name: perm.name,
-          group: perm.group,
-          method: perm.method,
-          path: perm.path,
-          sort: perm.sort,
+  await prisma.$transaction(
+    async (tx) => {
+      // 1. 创建管理员用户
+      const user = await tx.user.upsert({
+        where: { username_deletedId: { username, deletedId: 0n } },
+        update: {},
+        create: {
+          username,
+          nickname: '超级管理员',
+          isSuperAdmin: true,
+          status: 1,
+          dataScope: 1,
         },
       });
-    } else {
-      const created = await prisma.permission.create({
-        data: {
-          code: perm.code,
+
+      // 仅首次创建时写入密码，不覆盖已有密码
+      const existingCredential = await tx.userCredential.findUnique({
+        where: { userId: user.id },
+        select: { userId: true },
+      });
+
+      if (!existingCredential) {
+        await tx.userCredential.create({
+          data: {
+            userId: user.id,
+            passwordHash: await bcrypt.hash(password, 10),
+            passwordAlgo: 'bcrypt',
+          },
+        });
+      }
+
+      // 2. 创建菜单
+      const menuIds = await createMenus(tx, menuTree);
+
+      // 3. 创建权限
+      const permIds: bigint[] = [];
+      for (const perm of permissions) {
+        const baseData = {
           name: perm.name,
           group: perm.group,
           method: perm.method,
           path: perm.path,
           sort: perm.sort,
           status: 1,
+          isSystem: true,
+        };
+
+        const result = await tx.permission.upsert({
+          where: { code_deletedId: { code: perm.code, deletedId: 0n } },
+          update: baseData,
+          create: { ...baseData, code: perm.code },
+        });
+        permIds.push(result.id);
+      }
+
+      // 4. 创建默认角色
+      const role = await tx.role.upsert({
+        where: { code_deletedId: { code: 'ADMIN', deletedId: 0n } },
+        update: { name: '管理员', sort: 1, status: 1, isSystem: true },
+        create: {
+          code: 'ADMIN',
+          name: '管理员',
+          sort: 1,
+          status: 1,
+          isSystem: true,
+          remark: '默认管理员角色',
         },
       });
-      permIds.push(created.id);
-    }
-  }
-  console.log(`Permissions created: ${permIds.length}`);
 
-  // 4. 创建默认角色
-  const roleCode = 'ADMIN';
-  let role = await prisma.role.findFirst({
-    where: { code: roleCode, deletedId: 0n },
-  });
-
-  if (role) {
-    role = await prisma.role.update({
-      where: { id: role.id },
-      data: { name: '管理员', sort: 1, status: 1 },
-    });
-  } else {
-    role = await prisma.role.create({
-      data: {
-        code: roleCode,
-        name: '管理员',
-        sort: 1,
-        status: 1,
-        remark: '默认管理员角色',
-      },
-    });
-  }
-
-  // 5. 角色-菜单关联
-  for (const menuId of menuIds) {
-    await prisma.roleMenu.upsert({
-      where: { roleId_menuId: { roleId: role.id, menuId } },
-      update: {},
-      create: { roleId: role.id, menuId },
-    });
-  }
-
-  // 6. 角色-权限关联
-  for (const permissionId of permIds) {
-    await prisma.rolePermission.upsert({
-      where: { roleId_permissionId: { roleId: role.id, permissionId } },
-      update: {},
-      create: { roleId: role.id, permissionId },
-    });
-  }
-
-  // 7. 用户-角色关联
-  await prisma.userRole.upsert({
-    where: { userId_roleId: { userId: user.id, roleId: role.id } },
-    update: {},
-    create: { userId: user.id, roleId: role.id },
-  });
-
-  // 8. 创建字典类型和字典项
-  let dictTypeCount = 0;
-  let dictItemCount = 0;
-
-  for (const dt of dictTypes) {
-    let dictType = await prisma.dictType.findFirst({
-      where: { code: dt.code, deletedId: 0n },
-    });
-
-    const typeData = {
-      code: dt.code,
-      name: dt.name,
-      status: 1,
-      isSystem: true,
-    };
-
-    if (dictType) {
-      dictType = await prisma.dictType.update({
-        where: { id: dictType.id },
-        data: typeData,
-      });
-    } else {
-      dictType = await prisma.dictType.create({ data: typeData });
-    }
-    dictTypeCount++;
-
-    for (const item of dt.items) {
-      const existing = await prisma.dictItem.findFirst({
-        where: { dictTypeId: dictType.id, value: item.value, deletedId: 0n },
+      // 5. 角色-菜单关联
+      await tx.roleMenu.createMany({
+        data: menuIds.map((menuId) => ({ roleId: role.id, menuId })),
+        skipDuplicates: true,
       });
 
-      const itemData = {
-        dictTypeId: dictType.id,
-        label: item.label,
-        value: item.value,
-        color: item.color ?? null,
-        sort: item.sort,
-        status: 1,
-        isDefault: item.isDefault ?? false,
-      };
+      // 6. 角色-权限关联
+      await tx.rolePermission.createMany({
+        data: permIds.map((permissionId) => ({
+          roleId: role.id,
+          permissionId,
+        })),
+        skipDuplicates: true,
+      });
 
-      if (existing) {
-        await prisma.dictItem.update({
-          where: { id: existing.id },
-          data: itemData,
+      // 7. 用户-角色关联
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId: user.id, roleId: role.id } },
+        update: {},
+        create: { userId: user.id, roleId: role.id },
+      });
+
+      // 8. 创建字典类型和字典项
+      let dictTypeCount = 0;
+      let dictItemCount = 0;
+
+      for (const dt of dictTypes) {
+        const typeData = {
+          code: dt.code,
+          name: dt.name,
+          status: 1,
+          isSystem: true,
+        };
+
+        const dictType = await tx.dictType.upsert({
+          where: { code_deletedId: { code: dt.code, deletedId: 0n } },
+          update: typeData,
+          create: typeData,
         });
-      } else {
-        await prisma.dictItem.create({ data: itemData });
+        dictTypeCount++;
+
+        for (const item of dt.items) {
+          const itemData = {
+            dictTypeId: dictType.id,
+            label: item.label,
+            value: item.value,
+            color: item.color ?? null,
+            sort: item.sort,
+            status: 1,
+            isDefault: item.isDefault ?? false,
+          };
+
+          await tx.dictItem.upsert({
+            where: {
+              dictTypeId_value_deletedId: {
+                dictTypeId: dictType.id,
+                value: item.value,
+                deletedId: 0n,
+              },
+            },
+            update: itemData,
+            create: itemData,
+          });
+          dictItemCount++;
+        }
       }
-      dictItemCount++;
-    }
-  }
 
-  console.log(
-    `Seed completed: user=${user.username}, role=${role.code}, menus=${menuIds.length}, permissions=${permIds.length}, dictTypes=${dictTypeCount}, dictItems=${dictItemCount}`,
-  );
+      // 9. 创建 OAuth 提供商
+      for (const p of authProviders) {
+        await tx.authProvider.upsert({
+          where: { code: p.code },
+          update: { name: p.name, type: p.type, issuer: p.issuer, status: 1 },
+          create: { ...p, status: 1 },
+        });
+      }
 
-  // 9. 创建 OAuth 提供商
-  const authProviders = [
-    {
-      code: 'google',
-      name: 'Google',
-      type: 1,
-      issuer: 'https://accounts.google.com',
+      console.log(
+        `Seed completed: user=${user.username}, role=${role.code}, menus=${menuIds.length}, permissions=${permIds.length}, dictTypes=${dictTypeCount}, dictItems=${dictItemCount}, authProviders=${authProviders.length}`,
+      );
     },
-    { code: 'github', name: 'GitHub', type: 1, issuer: 'https://github.com' },
-    { code: 'gitee', name: 'Gitee', type: 1, issuer: 'https://gitee.com' },
-  ];
-
-  for (const p of authProviders) {
-    await prisma.authProvider.upsert({
-      where: { code: p.code },
-      update: { name: p.name, type: p.type, issuer: p.issuer, status: 1 },
-      create: { ...p, status: 1 },
-    });
-  }
-  console.log(`Auth providers created: ${authProviders.length}`);
+    { timeout: 30000, maxWait: 10000 },
+  );
 }
 
 main()

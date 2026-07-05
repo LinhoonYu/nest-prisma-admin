@@ -62,7 +62,16 @@ export class PermissionService {
     const perm = await this.prisma.permission.findUnique({ where: { id } });
     if (!perm) throw new ApiException(ApiCode.PermissionNotFound, '权限不存在');
     if (perm.isSystem) {
-      throw new ApiException(ApiCode.BadRequest, '系统内置权限不可修改');
+      const codeChanged = dto.code !== undefined && dto.code !== perm.code;
+      const methodChanged =
+        dto.method !== undefined && dto.method !== perm.method;
+      const pathChanged = dto.path !== undefined && dto.path !== perm.path;
+      if (codeChanged || methodChanged || pathChanged) {
+        throw new ApiException(
+          ApiCode.SystemDataCodeImmutable,
+          '系统内置权限标识不可修改',
+        );
+      }
     }
 
     if (dto.code !== undefined && dto.code !== perm.code) {

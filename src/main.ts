@@ -1,38 +1,45 @@
 import { Reflector } from '@nestjs/core';
-import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
+import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
+import { WinstonModule } from 'nest-winston';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import fastifyMultipart from '@fastify/multipart';
 
 import { AppModule } from './app.module';
 import { AllConfigType } from '~/config';
-import { AllExceptionFilter } from '~/common/filters/all-exception.filter';
+import { getWinstonInstance } from '~/config/winston.config';
 import { TransformInterceptor } from '~/common/interceptors/transform.interceptor';
 import { RedisIoAdapter } from '~/modules/ws/redis-io.adapter';
+import { RedisService } from '~/shared/redis/redis.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
-    { bufferLogs: true },
+    {
+      bufferLogs: true,
+      logger: WinstonModule.createLogger({ instance: getWinstonInstance() }),
+    },
   );
 
   app.enableShutdownHooks();
 
   const configService = app.get(ConfigService<AllConfigType>);
 
+  const logger = getWinstonInstance().child({ context: 'Bootstrap' });
+
   // WebSocket Redis 适配器（用于多实例水平扩展）
-  const logger = new Logger('Bootstrap');
   try {
+    const redisService = app.get(RedisService);
     const redisIoAdapter = new RedisIoAdapter(app);
-    await redisIoAdapter.connectToRedis();
+    redisIoAdapter.connectToRedis(redisService.getClient());
     app.useWebSocketAdapter(redisIoAdapter);
-    logger.log('WebSocket Redis 适配器已启用');
+    logger.info('WebSocket Redis 适配器已启用');
   } catch (err) {
     logger.warn(`Redis 不可用，使用默认 WS 适配器: ${(err as Error).message}`);
   }
@@ -59,7 +66,6 @@ async function bootstrap() {
   );
 
   const reflector = app.get(Reflector);
-  app.useGlobalFilters(new AllExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor(reflector));
 
   const swaggerConfig = configService.get('swagger', { infer: true });
@@ -77,9 +83,9 @@ async function bootstrap() {
   const port = configService.get('app.port', { infer: true }) || 3000;
   await app.listen(port, '0.0.0.0');
 
-  logger.log(`Server running on http://localhost:${port}/${globalPrefix}`);
+  logger.info(`Server running on http://localhost:${port}/${globalPrefix}`);
   if (swaggerConfig?.enable) {
-    logger.log(
+    logger.info(
       `Swagger docs at http://localhost:${port}/${swaggerConfig.path}`,
     );
   }

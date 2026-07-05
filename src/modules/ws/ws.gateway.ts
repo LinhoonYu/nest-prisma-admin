@@ -6,9 +6,9 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 
+import { AppLogger } from '~/common/logger/app-logger';
 import { TokenService } from '~/modules/auth/token.service';
 import { UserContextService } from '~/modules/auth/user-context.service';
 
@@ -24,18 +24,19 @@ export interface AuthenticatedSocket extends Socket {
 export class WsGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
-  private readonly logger = new Logger(WsGateway.name);
-
   @WebSocketServer()
   server!: Server;
 
   constructor(
     private tokenService: TokenService,
     private userContextService: UserContextService,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(WsGateway.name);
+  }
 
   afterInit() {
-    this.logger.log('WebSocket Gateway 初始化完成');
+    this.logger.info('WebSocket Gateway 初始化完成');
   }
 
   async handleConnection(client: Socket): Promise<void> {
@@ -66,7 +67,7 @@ export class WsGateway
 
       this.broadcastOnlineCount();
 
-      this.logger.log(
+      this.logger.info(
         `客户端 ${client.id} 已连接 (userId=${payload.userId}, sessionId=${payload.sessionId})`,
       );
     } catch (err) {
@@ -81,12 +82,12 @@ export class WsGateway
   handleDisconnect(client: Socket): void {
     const authedSocket = client as AuthenticatedSocket;
     if (authedSocket.userId) {
-      this.logger.log(
+      this.logger.info(
         `客户端 ${client.id} 已断开 (userId=${authedSocket.userId})`,
       );
       setTimeout(() => this.broadcastOnlineCount(), 1000);
     } else {
-      this.logger.log(`客户端 ${client.id} 已断开（未认证）`);
+      this.logger.info(`客户端 ${client.id} 已断开（未认证）`);
     }
   }
 
@@ -103,6 +104,17 @@ export class WsGateway
   /** 向指定用户推送事件 */
   sendToUser(userId: string, event: string, data: unknown): void {
     this.server.to(`user:${userId}`).emit(event, data);
+  }
+
+  /** 批量向指定用户推送事件 */
+  sendToUsers(
+    userIds: (number | string)[],
+    event: string,
+    data: unknown,
+  ): void {
+    if (!userIds.length) return;
+    const rooms = userIds.map((id) => `user:${id}`);
+    this.server.to(rooms).emit(event, data);
   }
 
   private broadcastOnlineCount(): void {

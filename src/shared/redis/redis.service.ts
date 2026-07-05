@@ -1,21 +1,21 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Redis } from 'ioredis';
+
+import { AppLogger } from '~/common/logger/app-logger';
 
 const KEY_PREFIX = 'npa:';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(RedisService.name);
   private client: Redis;
   private connected = false;
 
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(RedisService.name);
     const host = configService.get<string>('REDIS_HOST') || '127.0.0.1';
     const port = configService.get<number>('REDIS_PORT') || 6379;
     const password = configService.get<string>('REDIS_PASSWORD') || undefined;
@@ -36,12 +36,12 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
     this.client.on('connect', () => {
       this.connected = true;
-      this.logger.log(`Redis connected: ${host}:${port}/${db}`);
+      this.logger.info(`Redis connected: ${host}:${port}/${db}`);
     });
 
     this.client.on('error', (err) => {
       this.connected = false;
-      this.logger.error(`Redis error: ${err.message}`);
+      this.logger.error(`Redis error: ${err.message}`, { error: err });
     });
   }
 
@@ -58,7 +58,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     if (this.connected) {
       await this.client.quit();
-      this.logger.log('Redis disconnected');
+      this.logger.info('Redis disconnected');
     }
   }
 

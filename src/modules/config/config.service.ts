@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
+import { AppLogger } from '~/common/logger/app-logger';
 import { Prisma } from '~/generated/prisma/client';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { RedisService } from '~/shared/redis/redis.service';
@@ -17,12 +18,13 @@ const CACHE_TTL = 3600;
 
 @Injectable()
 export class ConfigService {
-  private readonly logger = new Logger(ConfigService.name);
-
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
-  ) {}
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(ConfigService.name);
+  }
 
   async list(query: ConfigQueryDto) {
     const { page, pageSize, keywords } = query;

@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
+import { AppLogger } from '~/common/logger/app-logger';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 
 import { CleanLoginLogDto, LoginLogQueryDto } from './dto/login-log.dto';
@@ -21,9 +22,12 @@ export interface LoginLogRecord {
 
 @Injectable()
 export class LoginLogService {
-  private readonly logger = new Logger(LoginLogService.name);
-
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(LoginLogService.name);
+  }
 
   async list(query: LoginLogQueryDto) {
     const {
@@ -72,10 +76,9 @@ export class LoginLogService {
     try {
       await this.prisma.loginLog.create({ data });
     } catch (e) {
-      this.logger.error(
-        `Failed to record login log: ${(e as Error).message}`,
-        (e as Error).stack,
-      );
+      this.logger.error(`Failed to record login log: ${(e as Error).message}`, {
+        error: e as Error,
+      });
     }
   }
 

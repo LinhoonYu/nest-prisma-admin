@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AmqpConnection } from '@golevelup/nestjs-rabbitmq';
 
+import { AppLogger } from '~/common/logger/app-logger';
 import {
   EXCHANGE_LOG,
   ROUTING_KEY_LOGIN_LOG,
@@ -15,9 +16,12 @@ import { LoginLogRecord } from './login-log.service';
  */
 @Injectable()
 export class LoginLogProducer {
-  private readonly logger = new Logger(LoginLogProducer.name);
-
-  constructor(private amqpConnection: AmqpConnection) {}
+  constructor(
+    private amqpConnection: AmqpConnection,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(LoginLogProducer.name);
+  }
 
   /** 发送登录日志到 MQ */
   async send(data: LoginLogRecord): Promise<void> {

@@ -61,8 +61,15 @@ export class DictTypeService {
     const dictType = await this.prisma.dictType.findUnique({ where: { id } });
     if (!dictType)
       throw new ApiException(ApiCode.DictNotFound, '字典类型不存在');
-    if (dictType.isSystem) {
-      throw new ApiException(ApiCode.BadRequest, '系统内置字典不可修改');
+    if (
+      dictType.isSystem &&
+      dto.code !== undefined &&
+      dto.code !== dictType.code
+    ) {
+      throw new ApiException(
+        ApiCode.SystemDataCodeImmutable,
+        '系统内置字典编码不可修改',
+      );
     }
 
     if (dto.code !== undefined && dto.code !== dictType.code) {

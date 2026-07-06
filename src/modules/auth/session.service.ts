@@ -1,134 +1,62 @@
 import { Inject, Injectable } from '@nestjs/common';
-import dayjs from 'dayjs';
+import { nanoid } from 'nanoid';
 
 import { ISecurityConfig, SecurityConfig } from '~/config';
-import { PrismaService } from '~/shared/prisma/prisma.service';
 import { RedisService } from '~/shared/redis/redis.service';
+import { sessionKey, userSessionsKey } from '~/shared/redis/redis-keys';
 
-const SESSION_ACTIVE_PREFIX = 'session:active:';
-const SESSION_CACHE_TTL = 60;
+import { parseDuration } from './token-utils';
 
-interface SessionCreateInput {
-  userId: bigint;
-  loginType: number;
-  ip?: string;
-  userAgent?: string;
-  deviceName?: string;
+interface SessionData {
+  userId: string;
 }
 
 @Injectable()
 export class SessionService {
   constructor(
-    private prisma: PrismaService,
     private redis: RedisService,
     @Inject(SecurityConfig.KEY) private securityConfig: ISecurityConfig,
   ) {}
 
-  async create(input: SessionCreateInput): Promise<bigint> {
-    const expiresAt = dayjs()
-      .add(this.securityConfig.refresh.ttlDays, 'day')
-      .toDate();
+  async create(userId: string): Promise<string> {
+    const sessionId = nanoid();
+    const ttl = parseDuration(this.securityConfig.refresh.expiresIn);
+    const data: SessionData = { userId };
 
-    const session = await this.prisma.authSession.create({
-      data: {
-        userId: input.userId,
-        loginType: input.loginType,
-        ip: input.ip,
-        userAgent: input.userAgent,
-        deviceName: input.deviceName,
-        expiresAt,
-        status: 1,
-      },
-    });
-
-    await this.cacheActive(session.id);
-    return session.id;
+    await this.redis.setCache(sessionKey(sessionId), data, ttl);
+    await this.redis.sAdd(userSessionsKey(userId), [sessionId], ttl);
+    return sessionId;
   }
 
-  async isActive(sessionId: bigint): Promise<boolean> {
-    const cached = await this.redis.getCache<boolean>(
-      SESSION_ACTIVE_PREFIX + sessionId,
-    );
-    if (cached !== null) return cached;
-
-    const session = await this.prisma.authSession.findUnique({
-      where: { id: sessionId },
-      select: { status: true, expiresAt: true, revokedAt: true },
-    });
-    if (!session) return false;
-
-    const active =
-      session.status === 1 &&
-      session.expiresAt > new Date() &&
-      !session.revokedAt;
-
-    if (active) await this.cacheActive(sessionId);
-    return active;
+  async isActive(sessionId: string): Promise<boolean> {
+    return this.redis.exists(sessionKey(sessionId));
   }
 
-  async revoke(sessionId: bigint, reason: string): Promise<void> {
-    await this.prisma.$transaction([
-      this.prisma.authSession.update({
-        where: { id: sessionId },
-        data: {
-          status: 2,
-          revokedAt: new Date(),
-          revokeReason: reason,
-        },
-      }),
-      this.prisma.refreshToken.updateMany({
-        where: { sessionId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      }),
-    ]);
-    await this.clearActiveCache(sessionId);
+  async getUserId(sessionId: string): Promise<string | null> {
+    const data = await this.redis.getCache<SessionData>(sessionKey(sessionId));
+    return data?.userId ?? null;
   }
 
-  async revokeByUser(userId: bigint, reason: string): Promise<void> {
-    const sessions = await this.prisma.authSession.findMany({
-      where: { userId, status: 1 },
-      select: { id: true },
-    });
-    if (sessions.length === 0) return;
-
-    const sessionIds = sessions.map((s) => s.id);
-
-    await this.prisma.$transaction([
-      this.prisma.authSession.updateMany({
-        where: { id: { in: sessionIds } },
-        data: {
-          status: 2,
-          revokedAt: new Date(),
-          revokeReason: reason,
-        },
-      }),
-      this.prisma.refreshToken.updateMany({
-        where: { sessionId: { in: sessionIds }, revokedAt: null },
-        data: { revokedAt: new Date() },
-      }),
-    ]);
-
-    await this.redis.delMany(
-      sessionIds.map((id) => SESSION_ACTIVE_PREFIX + id),
-    );
+  async revoke(sessionId: string): Promise<void> {
+    const userId = await this.getUserId(sessionId);
+    await this.redis.del(sessionKey(sessionId));
+    if (userId) {
+      await this.redis.sRem(userSessionsKey(userId), sessionId);
+    }
   }
 
-  async touch(sessionId: bigint): Promise<void> {
-    await this.prisma.authSession.update({
-      where: { id: sessionId },
-      data: { lastActiveAt: new Date() },
-    });
+  async revokeByUser(userId: string): Promise<void> {
+    const sessionIds = await this.redis.sMembers(userSessionsKey(userId));
+    if (sessionIds.length === 0) return;
+
+    await this.redis.delMany(sessionIds.map((id) => sessionKey(id)));
+    await this.redis.del(userSessionsKey(userId));
   }
 
-  async clearActiveCache(sessionId: bigint): Promise<void> {
-    await this.redis.del(SESSION_ACTIVE_PREFIX + sessionId);
-  }
-
-  private async cacheActive(sessionId: bigint): Promise<void> {
-    await this.redis.setCache(
-      SESSION_ACTIVE_PREFIX + sessionId,
-      true,
-      SESSION_CACHE_TTL,
-    );
+  /** 刷新时续期 session 和 user:sessions SET，保持滑动窗口 */
+  async renew(sessionId: string, userId: string): Promise<void> {
+    const ttl = parseDuration(this.securityConfig.refresh.expiresIn);
+    await this.redis.expire(sessionKey(sessionId), ttl);
+    await this.redis.expire(userSessionsKey(userId), ttl);
   }
 }

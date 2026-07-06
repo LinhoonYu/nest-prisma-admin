@@ -6,6 +6,7 @@ import { AppLogger } from '~/common/logger/app-logger';
 import { Prisma } from '~/generated/prisma/client';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { RedisService } from '~/shared/redis/redis.service';
+import { configValueKey } from '~/shared/redis/redis-keys';
 
 import {
   ConfigQueryDto,
@@ -13,7 +14,6 @@ import {
   UpdateConfigDto,
 } from './dto/config.dto';
 
-const CACHE_PREFIX = 'config:value:';
 const CACHE_TTL = 3600;
 
 @Injectable()
@@ -171,7 +171,7 @@ export class ConfigService {
     const configs = await this.prisma.config.findMany({
       select: { configKey: true },
     });
-    const keys = configs.map((c) => `${CACHE_PREFIX}${c.configKey}`);
+    const keys = configs.map((c) => configValueKey(c.configKey));
     if (keys.length > 0) {
       await this.redis.delMany(keys);
     }
@@ -183,7 +183,7 @@ export class ConfigService {
    * 供其他模块调用，不经过权限校验。
    */
   async getValueByKey(key: string): Promise<string | null> {
-    const cacheKey = `${CACHE_PREFIX}${key}`;
+    const cacheKey = configValueKey(key);
     try {
       const cached = await this.redis.getCache<string>(cacheKey);
       if (cached !== null) {
@@ -211,7 +211,7 @@ export class ConfigService {
 
   private async invalidateCache(configKey: string) {
     try {
-      await this.redis.del(`${CACHE_PREFIX}${configKey}`);
+      await this.redis.del(configValueKey(configKey));
     } catch (e) {
       this.logger.warn(`缓存失效失败: ${configKey}, ${(e as Error).message}`);
     }

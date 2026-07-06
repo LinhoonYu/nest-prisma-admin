@@ -86,6 +86,6 @@ function buildProviderMap(
       useClass: JwtAuthGuard,
     },
   ],
-  exports: [UserContextService, PasswordService, TokenService],
+  exports: [UserContextService, PasswordService, TokenService, SessionService],
 })
 export class AuthModule {}

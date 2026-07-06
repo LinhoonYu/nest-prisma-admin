@@ -1,28 +1,37 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createHash, randomBytes } from 'crypto';
-import { UAParser } from 'ua-parser-js';
 
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
-import { IOauthConfig, OauthConfig } from '~/config';
-import type { Prisma } from '~/generated/prisma/client';
+import {
+  IAppConfig,
+  IOauthConfig,
+  ISecurityConfig,
+  AppConfig,
+  OauthConfig,
+  SecurityConfig,
+} from '~/config';
+import { Prisma } from '~/generated/prisma/client';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { RedisService } from '~/shared/redis/redis.service';
+import {
+  oauthExchangeKey,
+  oauthPendingKey,
+  oauthStateKey,
+} from '~/shared/redis/redis-keys';
 
 import { LOGIN_TYPE_OAUTH } from '../auth.constants';
+import { PasswordService } from '../password.service';
+import { RsaService } from '../rsa.service';
 import { SessionService } from '../session.service';
 import { TokenService } from '../token.service';
-import {
-  OAUTH_EXCHANGE_PREFIX,
-  OAUTH_PROVIDERS,
-  OAUTH_STATE_PREFIX,
-} from './oauth.constants';
+import { OAUTH_PROVIDERS } from './oauth.constants';
 import type {
   AuthUrlResponse,
-  NormalizedOAuthUser,
   OAuthExchangePayload,
   OAuthLoginResult,
+  OAuthPendingPayload,
   OAuthStateContext,
 } from './oauth.types';
 import type { OAuthProviderStrategy } from './providers/oauth-provider.interface';
@@ -37,14 +46,6 @@ function generateRandomToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
-function parseDeviceName(userAgent: string): string {
-  if (!userAgent) return 'Unknown';
-  const parser = new UAParser(userAgent);
-  const browser = parser.getBrowser().name || 'Unknown';
-  const os = parser.getOS().name || 'Unknown';
-  return `${browser} on ${os}`;
-}
-
 @Injectable()
 export class OAuthService {
   constructor(
@@ -52,13 +53,20 @@ export class OAuthService {
     private redis: RedisService,
     private sessionService: SessionService,
     private tokenService: TokenService,
+    private passwordService: PasswordService,
+    private rsaService: RsaService,
     private eventEmitter: EventEmitter2,
     @Inject(OauthConfig.KEY) private oauthConfig: IOauthConfig,
+    @Inject(SecurityConfig.KEY) private securityConfig: ISecurityConfig,
     @Inject(OAUTH_PROVIDERS)
     private providerMap: Map<string, OAuthProviderStrategy>,
+    @Inject(AppConfig.KEY) private appConfig: IAppConfig,
   ) {}
 
-  async generateAuthUrl(providerCode: string): Promise<AuthUrlResponse> {
+  async generateAuthUrl(
+    providerCode: string,
+    mode: 'login' | 'bind' = 'login',
+  ): Promise<AuthUrlResponse> {
     const strategy = this.getStrategy(providerCode);
 
     const state = generateRandomToken();
@@ -71,9 +79,9 @@ export class OAuthService {
       codeChallenge = pair.challenge;
     }
 
-    const ctx: OAuthStateContext = { providerCode, codeVerifier };
+    const ctx: OAuthStateContext = { providerCode, codeVerifier, mode };
     await this.redis.setCache(
-      OAUTH_STATE_PREFIX + state,
+      oauthStateKey(state),
       ctx,
       this.oauthConfig.stateTtlSeconds,
     );
@@ -91,40 +99,446 @@ export class OAuthService {
   ): Promise<string> {
     const strategy = this.getStrategy(providerCode);
 
-    // 原子消费 state，防重放
-    const ctx = await this.redis.getAndDelete<OAuthStateContext>(
-      OAUTH_STATE_PREFIX + state,
+    const ctx = await this.redis.getCache<OAuthStateContext>(
+      oauthStateKey(state),
     );
     if (!ctx || ctx.providerCode !== providerCode) {
       throw new ApiException(ApiCode.OAuthStateInvalid, 'OAuth state 无效');
     }
+
+    // 绑定模式：不消费 state，透传 code/state 给前端
+    if (ctx.mode === 'bind') {
+      const redirectUrl = new URL(this.oauthConfig.frontendUrl);
+      redirectUrl.hash = `/oauth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&provider=${encodeURIComponent(providerCode)}&mode=bind`;
+      return redirectUrl.toString();
+    }
+
+    // 登录模式：消费 state
+    await this.redis.del(oauthStateKey(state));
 
     const normalized = await strategy.exchangeCodeForUser(
       code,
       ctx.codeVerifier,
     );
 
-    const { userId, username } = await this.findOrCreateUser(
-      normalized,
+    const existingIdentity = await this.findExistingIdentity(
       providerCode,
+      normalized.providerSubject,
     );
 
-    const deviceName = parseDeviceName(userAgent);
-    const session = await this.sessionService.create({
-      userId: BigInt(userId),
-      loginType: LOGIN_TYPE_OAUTH,
-      ip,
-      userAgent,
-      deviceName,
+    // 已绑定：直接登录
+    if (existingIdentity) {
+      if (existingIdentity.user.status !== 1) {
+        throw new ApiException(ApiCode.AccountDisabled, '账号已禁用');
+      }
+      await this.prisma.userIdentity.update({
+        where: { id: existingIdentity.id },
+        data: { lastLoginAt: new Date() },
+      });
+
+      const { accessToken, refreshToken } = await this.issueTokens(
+        existingIdentity.user.id.toString(),
+        existingIdentity.user.username,
+        providerCode,
+        ip,
+        userAgent,
+      );
+
+      const exchangeCode = generateRandomToken();
+      await this.redis.setCache(
+        oauthExchangeKey(exchangeCode),
+        { accessToken, refreshToken } satisfies OAuthExchangePayload,
+        this.oauthConfig.exchangeTtlSeconds,
+      );
+
+      const redirectUrl = new URL(this.oauthConfig.frontendUrl);
+      redirectUrl.hash = `/oauth/callback?code=${encodeURIComponent(exchangeCode)}&provider=${encodeURIComponent(providerCode)}`;
+      return redirectUrl.toString();
+    }
+
+    // 首次登录：不创建账号，存 pending 让用户选择
+    const pendingCode = generateRandomToken();
+    await this.redis.setCache(
+      oauthPendingKey(pendingCode),
+      { providerCode, normalized } satisfies OAuthPendingPayload,
+      this.oauthConfig.stateTtlSeconds,
+    );
+
+    const redirectUrl = new URL(this.oauthConfig.frontendUrl);
+    redirectUrl.hash = `/oauth/callback?pending=${encodeURIComponent(pendingCode)}&provider=${encodeURIComponent(providerCode)}`;
+    return redirectUrl.toString();
+  }
+
+  async exchangeCode(exchangeCode: string): Promise<OAuthLoginResult> {
+    const payload = await this.redis.getAndDelete<OAuthExchangePayload>(
+      oauthExchangeKey(exchangeCode),
+    );
+    if (!payload) {
+      throw new ApiException(
+        ApiCode.OAuthExchangeCodeInvalid,
+        '交换码无效或已过期',
+      );
+    }
+    return payload;
+  }
+
+  /**
+   * 首次 OAuth 登录：创建新账号并绑定 identity。
+   */
+  async registerNewAccount(
+    pendingCode: string,
+    ip: string,
+    userAgent: string,
+  ): Promise<OAuthLoginResult> {
+    const payload = await this.consumePending(pendingCode);
+    const { providerCode, normalized } = payload;
+
+    const subjectSuffix = normalized.providerSubject.slice(-8);
+    const username = `${providerCode}_${subjectSuffix}`;
+
+    const newUser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          username,
+          nickname: normalized.providerUsername,
+          status: 1,
+        },
+      });
+
+      await tx.userIdentity.create({
+        data: {
+          userId: user.id,
+          providerCode,
+          providerSubject: normalized.providerSubject,
+          providerUsername: normalized.providerUsername,
+          providerEmail: normalized.providerEmail,
+          providerAvatar: normalized.providerAvatar,
+          ...(normalized.providerMetadata
+            ? {
+                providerMetadata:
+                  normalized.providerMetadata as Prisma.InputJsonValue,
+              }
+            : {}),
+        },
+      });
+
+      return user;
     });
 
-    const sessionIdStr = session.toString();
-    const accessToken = this.tokenService.signAccess(userId, sessionIdStr);
-    const refreshToken = await this.tokenService.signRefresh(
-      userId,
-      sessionIdStr,
-      sessionIdStr,
+    return this.issueTokens(
+      newUser.id.toString(),
+      newUser.username,
+      providerCode,
+      ip,
+      userAgent,
     );
+  }
+
+  /**
+   * 首次 OAuth 登录：验证已有账号密码，绑定 identity 到该账号。
+   */
+  async linkExistingAccount(
+    pendingCode: string,
+    username: string,
+    password: string,
+    ip: string,
+    userAgent: string,
+  ): Promise<OAuthLoginResult> {
+    const payload = await this.consumePending(pendingCode);
+    const { providerCode, normalized } = payload;
+
+    const user = await this.prisma.user.findFirst({
+      where: { username, deletedId: 0n },
+    });
+    if (!user) {
+      throw new ApiException(
+        ApiCode.AccountOrPasswordError,
+        '用户名或密码错误',
+      );
+    }
+
+    if (user.status === 0) {
+      throw new ApiException(ApiCode.AccountDisabled, '账号已禁用');
+    }
+
+    if (await this.passwordService.isLocked(user.id)) {
+      const minutes = await this.passwordService.getLockedRemainingMinutes(
+        user.id,
+      );
+      throw new ApiException(
+        ApiCode.AccountLocked,
+        `账号已锁定，请 ${minutes} 分钟后重试`,
+      );
+    }
+
+    let plainPassword = password;
+    if (this.securityConfig.rsa.enabled) {
+      plainPassword = await this.rsaService.decrypt(password);
+    }
+
+    const credential = await this.passwordService.getCredential(user.id);
+    const verified = await this.passwordService.compare(
+      plainPassword,
+      credential.passwordHash,
+    );
+    if (!verified) {
+      await this.passwordService.recordFailure(user.id);
+      throw new ApiException(
+        ApiCode.AccountOrPasswordError,
+        '用户名或密码错误',
+      );
+    }
+
+    await this.passwordService.recordSuccess(user.id);
+
+    // 检查目标用户是否已绑定该提供商
+    const selfIdentity = await this.prisma.userIdentity.findFirst({
+      where: { userId: user.id, providerCode, deletedId: 0n },
+      select: { id: true },
+    });
+    if (selfIdentity) {
+      throw new ApiException(
+        ApiCode.OAuthProviderAlreadyLinked,
+        '该账号已绑定此登录方式',
+      );
+    }
+
+    try {
+      await this.prisma.userIdentity.create({
+        data: {
+          userId: user.id,
+          providerCode,
+          providerSubject: normalized.providerSubject,
+          providerUsername: normalized.providerUsername,
+          providerEmail: normalized.providerEmail,
+          providerAvatar: normalized.providerAvatar,
+          ...(normalized.providerMetadata
+            ? {
+                providerMetadata:
+                  normalized.providerMetadata as Prisma.InputJsonValue,
+              }
+            : {}),
+        },
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ApiException(
+          ApiCode.OAuthIdentityAlreadyBound,
+          '该第三方账号已被其他用户绑定',
+        );
+      }
+      throw e;
+    }
+
+    return this.issueTokens(
+      user.id.toString(),
+      user.username,
+      providerCode,
+      ip,
+      userAgent,
+    );
+  }
+
+  /**
+   * 已登录用户手动绑定第三方账号。
+   */
+  async bindIdentity(
+    userId: string,
+    providerCode: string,
+    code: string,
+    state?: string,
+  ): Promise<void> {
+    const strategy = this.getStrategy(providerCode);
+
+    let codeVerifier: string | null = null;
+    if (strategy.supportsPkce) {
+      if (!state) {
+        throw new ApiException(ApiCode.OAuthStateInvalid, 'OAuth state 无效');
+      }
+      const ctx = await this.redis.getAndDelete<OAuthStateContext>(
+        oauthStateKey(state),
+      );
+      if (!ctx || ctx.providerCode !== providerCode) {
+        throw new ApiException(ApiCode.OAuthStateInvalid, 'OAuth state 无效');
+      }
+      codeVerifier = ctx.codeVerifier;
+    }
+
+    const normalized = await strategy.exchangeCodeForUser(code, codeVerifier);
+
+    const existingIdentity = await this.prisma.userIdentity.findFirst({
+      where: {
+        providerCode,
+        providerSubject: normalized.providerSubject,
+        deletedId: 0n,
+      },
+      select: { userId: true },
+    });
+
+    if (existingIdentity) {
+      if (existingIdentity.userId.toString() === userId) {
+        throw new ApiException(
+          ApiCode.OAuthProviderAlreadyLinked,
+          '您已绑定该登录方式',
+        );
+      }
+      throw new ApiException(
+        ApiCode.OAuthIdentityAlreadyBound,
+        '该第三方账号已被其他用户绑定',
+      );
+    }
+
+    const selfIdentity = await this.prisma.userIdentity.findFirst({
+      where: { userId: BigInt(userId), providerCode, deletedId: 0n },
+      select: { id: true },
+    });
+    if (selfIdentity) {
+      throw new ApiException(
+        ApiCode.OAuthProviderAlreadyLinked,
+        '您已绑定该登录方式',
+      );
+    }
+
+    try {
+      await this.prisma.userIdentity.create({
+        data: {
+          userId: BigInt(userId),
+          providerCode,
+          providerSubject: normalized.providerSubject,
+          providerUsername: normalized.providerUsername,
+          providerEmail: normalized.providerEmail,
+          providerAvatar: normalized.providerAvatar,
+          ...(normalized.providerMetadata
+            ? {
+                providerMetadata:
+                  normalized.providerMetadata as Prisma.InputJsonValue,
+              }
+            : {}),
+        },
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        throw new ApiException(
+          ApiCode.OAuthIdentityAlreadyBound,
+          '该第三方账号已被其他用户绑定',
+        );
+      }
+      throw e;
+    }
+  }
+
+  async unbindIdentity(userId: string, identityId: string): Promise<void> {
+    const identity = await this.prisma.userIdentity.findFirst({
+      where: { id: BigInt(identityId), deletedId: 0n },
+    });
+
+    if (!identity) {
+      throw new ApiException(ApiCode.NotFound, '绑定记录不存在');
+    }
+
+    if (identity.userId.toString() !== userId) {
+      throw new ApiException(ApiCode.NoPermission, '无权操作');
+    }
+
+    const [otherIdentities, credential] = await Promise.all([
+      this.prisma.userIdentity.count({
+        where: {
+          userId: BigInt(userId),
+          deletedId: 0n,
+          NOT: { id: BigInt(identityId) },
+        },
+      }),
+      this.prisma.userCredential.findUnique({
+        where: { userId: BigInt(userId) },
+        select: { id: true },
+      }),
+    ]);
+
+    if (otherIdentities === 0 && !credential) {
+      throw new ApiException(
+        ApiCode.OAuthCannotUnbindLastIdentity,
+        '无法解绑最后一个登录方式',
+      );
+    }
+
+    await this.prisma.userIdentity.update({
+      where: { id: BigInt(identityId) },
+      data: {
+        deletedAt: new Date(),
+        deletedId: BigInt(identityId),
+      },
+    });
+  }
+
+  async listIdentities(userId: string): Promise<
+    {
+      id: bigint;
+      providerCode: string;
+      providerUsername: string | null;
+      providerAvatar: string | null;
+      linkedAt: Date;
+      lastLoginAt: Date | null;
+    }[]
+  > {
+    return this.prisma.userIdentity.findMany({
+      where: { userId: BigInt(userId), deletedId: 0n },
+      select: {
+        id: true,
+        providerCode: true,
+        providerUsername: true,
+        providerAvatar: true,
+        linkedAt: true,
+        lastLoginAt: true,
+      },
+      orderBy: { linkedAt: 'asc' },
+    });
+  }
+
+  private async findExistingIdentity(
+    providerCode: string,
+    providerSubject: string,
+  ) {
+    return this.prisma.userIdentity.findFirst({
+      where: { providerCode, providerSubject, deletedId: 0n },
+      include: { user: true },
+    });
+  }
+
+  private async consumePending(
+    pendingCode: string,
+  ): Promise<OAuthPendingPayload> {
+    const payload = await this.redis.getAndDelete<OAuthPendingPayload>(
+      oauthPendingKey(pendingCode),
+    );
+    if (!payload) {
+      throw new ApiException(
+        ApiCode.OAuthPendingInvalid,
+        '授权已过期，请重新登录',
+      );
+    }
+    return payload;
+  }
+
+  private async issueTokens(
+    userId: string,
+    username: string,
+    provider: string,
+    ip: string,
+    userAgent: string,
+  ): Promise<OAuthLoginResult> {
+    if (!this.appConfig.multiDeviceLogin) {
+      await this.sessionService.revokeByUser(userId);
+    }
+
+    const sessionId = await this.sessionService.create(userId);
+    const accessToken = this.tokenService.signAccess(userId, sessionId);
+    const refreshToken = await this.tokenService.signRefresh(userId, sessionId);
 
     await this.prisma.user.update({
       where: { id: BigInt(userId) },
@@ -135,36 +549,13 @@ export class OAuthService {
       userId: BigInt(userId),
       username,
       loginType: LOGIN_TYPE_OAUTH,
-      provider: providerCode,
+      provider,
       ip,
       userAgent,
       status: 1,
     });
 
-    const exchangeCode = generateRandomToken();
-    const payload: OAuthExchangePayload = { accessToken, refreshToken };
-    await this.redis.setCache(
-      OAUTH_EXCHANGE_PREFIX + exchangeCode,
-      payload,
-      this.oauthConfig.exchangeTtlSeconds,
-    );
-
-    const redirectUrl = new URL(this.oauthConfig.frontendUrl);
-    redirectUrl.hash = `/oauth/callback?code=${encodeURIComponent(exchangeCode)}&provider=${encodeURIComponent(providerCode)}`;
-    return redirectUrl.toString();
-  }
-
-  async exchangeCode(exchangeCode: string): Promise<OAuthLoginResult> {
-    const payload = await this.redis.getAndDelete<OAuthExchangePayload>(
-      OAUTH_EXCHANGE_PREFIX + exchangeCode,
-    );
-    if (!payload) {
-      throw new ApiException(
-        ApiCode.OAuthExchangeCodeInvalid,
-        '交换码无效或已过期',
-      );
-    }
-    return payload;
+    return { accessToken, refreshToken };
   }
 
   private getStrategy(providerCode: string): OAuthProviderStrategy {
@@ -176,105 +567,5 @@ export class OAuthService {
       );
     }
     return strategy;
-  }
-
-  /**
-   * 查找或创建用户。邮箱匹配时自动关联已有账号。
-   */
-  private async findOrCreateUser(
-    normalized: NormalizedOAuthUser,
-    providerCode: string,
-  ): Promise<{ userId: string; username: string }> {
-    const provider = await this.prisma.authProvider.findUnique({
-      where: { code: providerCode },
-    });
-    if (!provider || provider.status !== 1) {
-      throw new ApiException(
-        ApiCode.OAuthProviderDisabled,
-        `登录方式 ${providerCode} 未启用`,
-      );
-    }
-
-    // 1. 查找已绑定的 identity
-    const existingIdentity = await this.prisma.userIdentity.findFirst({
-      where: {
-        providerId: provider.id,
-        providerSubject: normalized.providerSubject,
-        deletedId: 0n,
-      },
-      include: { user: true },
-    });
-
-    if (existingIdentity) {
-      if (existingIdentity.user.status !== 1) {
-        throw new ApiException(ApiCode.AccountDisabled, '账号已禁用');
-      }
-      await this.prisma.userIdentity.update({
-        where: { id: existingIdentity.id },
-        data: { lastLoginAt: new Date() },
-      });
-      return {
-        userId: existingIdentity.user.id.toString(),
-        username: existingIdentity.user.username,
-      };
-    }
-
-    // 2. 邮箱匹配：自动关联已有用户
-    if (normalized.providerEmail) {
-      const existingUser = await this.prisma.user.findFirst({
-        where: { email: normalized.providerEmail, deletedId: 0n },
-      });
-      if (existingUser) {
-        if (existingUser.status !== 1) {
-          throw new ApiException(ApiCode.AccountDisabled, '账号已禁用');
-        }
-        await this.prisma.userIdentity.create({
-          data: {
-            userId: existingUser.id,
-            providerId: provider.id,
-            providerSubject: normalized.providerSubject,
-            providerUsername: normalized.providerUsername,
-            providerEmail: normalized.providerEmail,
-            providerAvatar: normalized.providerAvatar,
-            rawProfile: normalized.rawProfile as Prisma.InputJsonValue,
-          },
-        });
-        return {
-          userId: existingUser.id.toString(),
-          username: existingUser.username,
-        };
-      }
-    }
-
-    // 3. 首次登录，创建新用户
-    const subjectSuffix = normalized.providerSubject.slice(-8);
-    const username = `${providerCode}_${subjectSuffix}`;
-
-    const newUser = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          username,
-          nickname: normalized.providerUsername,
-          email: normalized.providerEmail,
-          status: 1,
-        },
-      });
-
-      await tx.userIdentity.create({
-        data: {
-          userId: user.id,
-          providerId: provider.id,
-          providerSubject: normalized.providerSubject,
-          providerUsername: normalized.providerUsername,
-          providerEmail: normalized.providerEmail,
-          providerAvatar: normalized.providerAvatar,
-          rawProfile: normalized.rawProfile as Prisma.InputJsonValue,
-        },
-      });
-
-      return user;
-    });
-
-    return { userId: newUser.id.toString(), username: newUser.username };
   }
 }

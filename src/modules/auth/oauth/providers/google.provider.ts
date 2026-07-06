@@ -67,7 +67,6 @@ export class GoogleProvider implements OAuthProviderStrategy {
       providerUsername: userInfo.name,
       providerEmail: userInfo.email,
       providerAvatar: userInfo.picture,
-      rawProfile: userInfo as unknown as Record<string, unknown>,
     };
   }
 }

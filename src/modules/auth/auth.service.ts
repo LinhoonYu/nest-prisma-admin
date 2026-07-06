@@ -1,7 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { UAParser } from 'ua-parser-js';
-
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
 import { IAppConfig, AppConfig } from '~/config';
@@ -51,24 +49,14 @@ export class AuthService {
     const userId = BigInt(user.userId);
 
     if (!this.appConfig.multiDeviceLogin) {
-      await this.sessionService.revokeByUser(userId, 'Single device login');
+      await this.sessionService.revokeByUser(user.userId);
     }
 
-    const deviceName = this.parseDeviceName(userAgent);
-    const session = await this.sessionService.create({
-      userId,
-      loginType: LOGIN_TYPE_PASSWORD,
-      ip,
-      userAgent,
-      deviceName,
-    });
-
-    const sessionIdStr = session.toString();
-    const accessToken = this.tokenService.signAccess(user.userId, sessionIdStr);
+    const sessionId = await this.sessionService.create(user.userId);
+    const accessToken = this.tokenService.signAccess(user.userId, sessionId);
     const refreshToken = await this.tokenService.signRefresh(
       user.userId,
-      sessionIdStr,
-      sessionIdStr,
+      sessionId,
     );
 
     await this.prisma.user.update({
@@ -99,17 +87,12 @@ export class AuthService {
     return this.tokenService.rotateRefresh(refreshToken);
   }
 
-  async logout(userId: string, sessionId: string, accessToken: string) {
-    await this.sessionService.revoke(BigInt(sessionId), 'User logout');
-    await this.tokenService.blacklistAccess(accessToken);
+  async logout(sessionId: string) {
+    await this.sessionService.revoke(sessionId);
   }
 
-  async logoutAll(userId: string, accessToken: string) {
-    await this.sessionService.revokeByUser(
-      BigInt(userId),
-      'Logout all devices',
-    );
-    await this.tokenService.blacklistAccess(accessToken);
+  async logoutAll(userId: string) {
+    await this.sessionService.revokeByUser(userId);
   }
 
   async profile(userId: string) {
@@ -118,19 +101,25 @@ export class AuthService {
       throw new ApiException(ApiCode.UserNotFound, '用户不存在');
     }
 
-    const [roles, permissions] = await Promise.all([
+    const [roles, permissions, avatarUrl] = await Promise.all([
       this.userContextService.getRoleCodes(userId),
       this.userContextService.getPermissionCodes(userId),
+      user.avatarFileId ? Promise.resolve(null) : this.getOAuthAvatar(userId),
     ]);
 
-    return { ...user, roles, permissions };
+    return { ...user, roles, permissions, avatarUrl };
   }
 
-  private parseDeviceName(userAgent: string): string {
-    if (!userAgent) return 'Unknown';
-    const parser = new UAParser(userAgent);
-    const browser = parser.getBrowser().name || 'Unknown';
-    const os = parser.getOS().name || 'Unknown';
-    return `${browser} on ${os}`;
+  private async getOAuthAvatar(userId: string): Promise<string | null> {
+    const identity = await this.prisma.userIdentity.findFirst({
+      where: {
+        userId: BigInt(userId),
+        deletedId: 0n,
+        providerAvatar: { not: null },
+      },
+      select: { providerAvatar: true },
+      orderBy: { linkedAt: 'asc' },
+    });
+    return identity?.providerAvatar ?? null;
   }
 }

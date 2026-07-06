@@ -758,17 +758,6 @@ async function createMenus(
   return ids;
 }
 
-const authProviders = [
-  {
-    code: 'google',
-    name: 'Google',
-    type: 1,
-    issuer: 'https://accounts.google.com',
-  },
-  { code: 'github', name: 'GitHub', type: 1, issuer: 'https://github.com' },
-  { code: 'gitee', name: 'Gitee', type: 1, issuer: 'https://gitee.com' },
-];
-
 async function main() {
   const username = 'admin';
   const password = process.env.SEED_ADMIN_PASSWORD || 'admin123';
@@ -909,17 +898,8 @@ async function main() {
         }
       }
 
-      // 9. 创建 OAuth 提供商
-      for (const p of authProviders) {
-        await tx.authProvider.upsert({
-          where: { code: p.code },
-          update: { name: p.name, type: p.type, issuer: p.issuer, status: 1 },
-          create: { ...p, status: 1 },
-        });
-      }
-
       console.log(
-        `Seed completed: user=${user.username}, role=${role.code}, menus=${menuIds.length}, permissions=${permIds.length}, dictTypes=${dictTypeCount}, dictItems=${dictItemCount}, authProviders=${authProviders.length}`,
+        `Seed completed: user=${user.username}, role=${role.code}, menus=${menuIds.length}, permissions=${permIds.length}, dictTypes=${dictTypeCount}, dictItems=${dictItemCount}`,
       );
     },
     { timeout: 30000, maxWait: 10000 },

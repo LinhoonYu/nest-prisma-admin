@@ -22,7 +22,6 @@ export const SecurityConfig = registerAs(securityRegToken, () => {
     },
     refresh: {
       expiresIn: env('REFRESH_EXPIRES_IN', '7d'),
-      ttlDays: envNumber('REFRESH_TTL_DAYS', 30),
     },
     captcha: {
       enabled: envBoolean('CAPTCHA_ENABLE', true),

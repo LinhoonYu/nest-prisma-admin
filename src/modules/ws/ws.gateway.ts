@@ -10,7 +10,7 @@ import { Server, Socket } from 'socket.io';
 
 import { AppLogger } from '~/common/logger/app-logger';
 import { TokenService } from '~/modules/auth/token.service';
-import { UserContextService } from '~/modules/auth/user-context.service';
+import { SessionService } from '~/modules/auth/session.service';
 
 export interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -29,7 +29,7 @@ export class WsGateway
 
   constructor(
     private tokenService: TokenService,
-    private userContextService: UserContextService,
+    private sessionService: SessionService,
     private readonly logger: AppLogger,
   ) {
     this.logger.setContext(WsGateway.name);
@@ -50,14 +50,15 @@ export class WsGateway
         return;
       }
 
-      if (await this.tokenService.isBlacklisted(authToken)) {
-        this.logger.warn(`客户端 ${client.id} 连接被拒绝：token 已失效`);
-        client.emit('error', { code: 401, message: '令牌已失效，请重新登录' });
+      const payload = await this.tokenService.verifyAccess(authToken);
+
+      const active = await this.sessionService.isActive(payload.sessionId);
+      if (!active) {
+        this.logger.warn(`客户端 ${client.id} 连接被拒绝：会话已失效`);
+        client.emit('error', { code: 401, message: '会话已失效，请重新登录' });
         client.disconnect(true);
         return;
       }
-
-      const payload = await this.tokenService.verifyAccess(authToken);
 
       const authedSocket = client as AuthenticatedSocket;
       authedSocket.userId = payload.userId;
@@ -96,17 +97,14 @@ export class WsGateway
     client.emit('pong', { timestamp: Date.now() });
   }
 
-  /** 向所有客户端广播事件 */
   broadcast(event: string, data: unknown): void {
     this.server.emit(event, data);
   }
 
-  /** 向指定用户推送事件 */
   sendToUser(userId: string, event: string, data: unknown): void {
     this.server.to(`user:${userId}`).emit(event, data);
   }
 
-  /** 批量向指定用户推送事件 */
   sendToUsers(
     userIds: (number | string)[],
     event: string,

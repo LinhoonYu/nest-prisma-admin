@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Headers,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FastifyRequest } from 'fastify';
 
@@ -73,23 +65,15 @@ export class AuthController {
   @Post('logout')
   @ApiOperation({ summary: '登出当前设备' })
   @LogAction({ module: '认证', action: '登出', description: '登出当前设备' })
-  async logout(
-    @CurrentUser() user: JwtPayload,
-    @Headers('authorization') auth: string,
-  ) {
-    const accessToken = auth?.replace('Bearer ', '') || '';
-    await this.authService.logout(user.userId, user.sessionId, accessToken);
+  async logout(@CurrentUser() user: JwtPayload) {
+    await this.authService.logout(user.sessionId);
   }
 
   @Post('logout-all')
   @ApiOperation({ summary: '登出所有设备' })
   @LogAction({ module: '认证', action: '登出', description: '登出所有设备' })
-  async logoutAll(
-    @CurrentUser() user: JwtPayload,
-    @Headers('authorization') auth: string,
-  ) {
-    const accessToken = auth?.replace('Bearer ', '') || '';
-    await this.authService.logoutAll(user.userId, accessToken);
+  async logoutAll(@CurrentUser() user: JwtPayload) {
+    await this.authService.logoutAll(user.userId);
   }
 
   @Get('profile')

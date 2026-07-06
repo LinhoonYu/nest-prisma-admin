@@ -6,8 +6,8 @@ import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
 import { ISecurityConfig, SecurityConfig } from '~/config';
 import { RedisService } from '~/shared/redis/redis.service';
+import { captchaKey } from '~/shared/redis/redis-keys';
 
-const CAPTCHA_PREFIX = 'captcha:';
 const CAPTCHA_WIDTH = 160;
 const CAPTCHA_HEIGHT = 50;
 const FONT_SIZE = 56;
@@ -142,16 +142,12 @@ export class CaptchaService {
 
     const key = nanoid();
     const ttl = this.securityConfig.captcha.expiresIn * 60;
-    await this.redis.setCache(
-      CAPTCHA_PREFIX + key,
-      expr.text.toLowerCase(),
-      ttl,
-    );
+    await this.redis.setCache(captchaKey(key), expr.text.toLowerCase(), ttl);
     return { key, svg };
   }
 
   async verify(key: string, code: string): Promise<void> {
-    const stored = await this.redis.getAndDelete<string>(CAPTCHA_PREFIX + key);
+    const stored = await this.redis.getAndDelete<string>(captchaKey(key));
     if (!stored || stored !== code.toLowerCase()) {
       throw new ApiException(ApiCode.CaptchaError, '验证码错误或已过期');
     }

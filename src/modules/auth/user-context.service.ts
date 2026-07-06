@@ -2,10 +2,12 @@ import { Injectable } from '@nestjs/common';
 
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { RedisService } from '~/shared/redis/redis.service';
+import {
+  userCacheKey,
+  userPermsCacheKey,
+  userRolesCacheKey,
+} from '~/shared/redis/redis-keys';
 
-const USER_PREFIX = 'user:';
-const ROLES_PREFIX = 'user:roles:';
-const PERMS_PREFIX = 'user:perms:';
 const CACHE_TTL = 300;
 
 interface CachedUser {
@@ -31,7 +33,7 @@ export class UserContextService {
   ) {}
 
   async getUser(userId: string): Promise<CachedUser | null> {
-    const cacheKey = USER_PREFIX + userId;
+    const cacheKey = userCacheKey(userId);
     const cached = await this.redis.getCache<CachedUser>(cacheKey);
     if (cached) return cached;
 
@@ -68,7 +70,7 @@ export class UserContextService {
   }
 
   async getRoleCodes(userId: string): Promise<string[]> {
-    const cacheKey = ROLES_PREFIX + userId;
+    const cacheKey = userRolesCacheKey(userId);
     const cached = await this.redis.getCache<string[]>(cacheKey);
     if (cached) return cached;
 
@@ -90,7 +92,7 @@ export class UserContextService {
   }
 
   async getPermissionCodes(userId: string): Promise<string[]> {
-    const cacheKey = PERMS_PREFIX + userId;
+    const cacheKey = userPermsCacheKey(userId);
     const cached = await this.redis.getCache<string[]>(cacheKey);
     if (cached) return cached;
 
@@ -127,9 +129,9 @@ export class UserContextService {
 
   async invalidate(userId: string): Promise<void> {
     await this.redis.delMany([
-      USER_PREFIX + userId,
-      ROLES_PREFIX + userId,
-      PERMS_PREFIX + userId,
+      userCacheKey(userId),
+      userRolesCacheKey(userId),
+      userPermsCacheKey(userId),
     ]);
   }
 }

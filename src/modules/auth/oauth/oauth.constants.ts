@@ -1,9 +1,3 @@
-/** Redis key: OAuth state 上下文 */
-export const OAUTH_STATE_PREFIX = 'oauth:state:';
-
-/** Redis key: OAuth 一次性交换码 */
-export const OAUTH_EXCHANGE_PREFIX = 'oauth:exchange:';
-
 /** NestJS DI token: Map<providerCode, OAuthProviderStrategy> */
 export const OAUTH_PROVIDERS = Symbol('OAUTH_PROVIDERS');
 

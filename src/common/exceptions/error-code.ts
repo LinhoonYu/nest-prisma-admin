@@ -35,7 +35,6 @@ export enum ApiCode {
   // 会话相关 3xxx
   SessionExpired = 3001,
   SessionRevoked = 3002,
-  TokenBlacklisted = 3003,
   RefreshTokenReuseDetected = 3004,
   RefreshTokenInvalid = 3005,
   MustChangePassword = 3006,
@@ -66,4 +65,10 @@ export enum ApiCode {
   OAuthCodeExchangeFailed = 8004,
   OAuthUserInfoFailed = 8005,
   OAuthExchangeCodeInvalid = 8006,
+  OAuthIdentityAlreadyBound = 8007,
+  OAuthProviderAlreadyLinked = 8008,
+  OAuthCannotUnbindLastIdentity = 8009,
+
+  /** OAuth 待处理码无效或已过期 */
+  OAuthPendingInvalid = 8010,
 }

@@ -5,8 +5,8 @@ export interface NormalizedOAuthUser {
   providerUsername: string | null;
   providerEmail: string | null;
   providerAvatar: string | null;
-  /** 提供商返回的原始用户信息 */
-  rawProfile: Record<string, unknown>;
+  /** 渠道特定数据（如微信 openid/unionid），当前提供商不需要时留空 */
+  providerMetadata?: Record<string, unknown>;
 }
 
 /** Redis 中 state → 上下文 */
@@ -14,6 +14,8 @@ export interface OAuthStateContext {
   providerCode: string;
   /** PKCE code_verifier，不支持 PKCE 时为 null */
   codeVerifier: string | null;
+  /** login=OAuth 登录, bind=已登录用户绑定第三方账号 */
+  mode: 'login' | 'bind';
 }
 
 /** Redis 中一次性交换码 → Token 结果 */
@@ -31,4 +33,10 @@ export interface AuthUrlResponse {
 export interface OAuthLoginResult {
   accessToken: string;
   refreshToken: string;
+}
+
+/** Redis 中首次登录待处理上下文 */
+export interface OAuthPendingPayload {
+  providerCode: string;
+  normalized: NormalizedOAuthUser;
 }

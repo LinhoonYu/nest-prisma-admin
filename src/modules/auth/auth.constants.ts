@@ -1,4 +1,4 @@
-/** 密码登录类型（对应 AuthSession.loginType 字段） */
+/** 密码登录类型（对应 login_logs.login_type 字段） */
 export const LOGIN_TYPE_PASSWORD = 1;
 
 /** OAuth 登录类型 */

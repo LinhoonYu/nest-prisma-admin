@@ -65,7 +65,6 @@ export class GiteeProvider implements OAuthProviderStrategy {
       providerUsername: userInfo.login,
       providerEmail: userInfo.email,
       providerAvatar: userInfo.avatar_url,
-      rawProfile: userInfo as unknown as Record<string, unknown>,
     };
   }
 }

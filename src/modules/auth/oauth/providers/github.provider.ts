@@ -88,7 +88,6 @@ export class GitHubProvider implements OAuthProviderStrategy {
       providerUsername: userInfo.login,
       providerEmail: email,
       providerAvatar: userInfo.avatar_url,
-      rawProfile: userInfo as unknown as Record<string, unknown>,
     };
   }
 }

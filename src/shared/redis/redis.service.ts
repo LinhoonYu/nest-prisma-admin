@@ -148,6 +148,28 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return this.client.ttl(this.prefix(key));
   }
 
+  async sAdd(
+    key: string,
+    members: string[],
+    ttlSeconds?: number,
+  ): Promise<number> {
+    if (members.length === 0) return 0;
+    const prefixed = this.prefix(key);
+    const result = await this.client.sadd(prefixed, ...members);
+    if (ttlSeconds !== undefined) {
+      await this.client.expire(prefixed, ttlSeconds);
+    }
+    return result;
+  }
+
+  async sMembers(key: string): Promise<string[]> {
+    return this.client.smembers(this.prefix(key));
+  }
+
+  async sRem(key: string, member: string): Promise<number> {
+    return this.client.srem(this.prefix(key), member);
+  }
+
   private prefix(key: string): string {
     return `${KEY_PREFIX}${key}`;
   }

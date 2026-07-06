@@ -8,21 +8,18 @@ import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
 import { PERM_KEY } from '~/common/decorators/perm.decorator';
 import { PUBLIC_KEY } from '~/common/decorators/public.decorator';
-import { TokenService } from '../token.service';
 import { UserContextService } from '../user-context.service';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(
     private reflector: Reflector,
-    private tokenService: TokenService,
     private userContextService: UserContextService,
   ) {
     super();
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // 非 HTTP 上下文（如 RabbitMQ 消费者）跳过鉴权
     if (context.getType() !== 'http') return true;
 
     const isPublic = this.reflector.getAllAndOverride<boolean>(PUBLIC_KEY, [
@@ -36,13 +33,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     if (!token) {
       throw new ApiException(ApiCode.TokenMissing, '请先登录');
-    }
-
-    if (await this.tokenService.isBlacklisted(token)) {
-      throw new ApiException(
-        ApiCode.TokenBlacklisted,
-        '令牌已失效，请重新登录',
-      );
     }
 
     await super.canActivate(context);

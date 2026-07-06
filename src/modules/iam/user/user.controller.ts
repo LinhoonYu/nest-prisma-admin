@@ -33,8 +33,8 @@ export class UserController {
   @Get()
   @ApiOperation({ summary: '用户列表' })
   @Perm(userPermissions.LIST)
-  list(@Query() query: UserQueryDto) {
-    return this.userService.list(query);
+  list(@Query() query: UserQueryDto, @CurrentUser('userId') userId: string) {
+    return this.userService.list(query, userId);
   }
 
   @Get(':id')

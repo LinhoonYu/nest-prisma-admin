@@ -248,7 +248,7 @@ export class OAuthService {
     const { providerCode, normalized } = payload;
 
     const user = await this.prisma.user.findFirst({
-      where: { username, deletedId: 0n },
+      where: { username },
     });
     if (!user) {
       throw new ApiException(
@@ -293,7 +293,7 @@ export class OAuthService {
 
     // 检查目标用户是否已绑定该提供商
     const selfIdentity = await this.prisma.userIdentity.findFirst({
-      where: { userId: user.id, providerCode, deletedId: 0n },
+      where: { userId: user.id, providerCode },
       select: { id: true },
     });
     if (selfIdentity) {
@@ -373,7 +373,6 @@ export class OAuthService {
       where: {
         providerCode,
         providerSubject: normalized.providerSubject,
-        deletedId: 0n,
       },
       select: { userId: true },
     });
@@ -392,7 +391,7 @@ export class OAuthService {
     }
 
     const selfIdentity = await this.prisma.userIdentity.findFirst({
-      where: { userId: BigInt(userId), providerCode, deletedId: 0n },
+      where: { userId: BigInt(userId), providerCode },
       select: { id: true },
     });
     if (selfIdentity) {
@@ -435,7 +434,7 @@ export class OAuthService {
 
   async unbindIdentity(userId: string, identityId: string): Promise<void> {
     const identity = await this.prisma.userIdentity.findFirst({
-      where: { id: BigInt(identityId), deletedId: 0n },
+      where: { id: BigInt(identityId) },
     });
 
     if (!identity) {
@@ -450,7 +449,6 @@ export class OAuthService {
       this.prisma.userIdentity.count({
         where: {
           userId: BigInt(userId),
-          deletedId: 0n,
           NOT: { id: BigInt(identityId) },
         },
       }),
@@ -487,7 +485,7 @@ export class OAuthService {
     }[]
   > {
     return this.prisma.userIdentity.findMany({
-      where: { userId: BigInt(userId), deletedId: 0n },
+      where: { userId: BigInt(userId) },
       select: {
         id: true,
         providerCode: true,
@@ -505,7 +503,7 @@ export class OAuthService {
     providerSubject: string,
   ) {
     return this.prisma.userIdentity.findFirst({
-      where: { providerCode, providerSubject, deletedId: 0n },
+      where: { providerCode, providerSubject },
       include: { user: true },
     });
   }

@@ -48,3 +48,8 @@ export const oauthPendingKey = (code: string) => `oauth:pending:${code}`;
 
 /** 系统配置值缓存 */
 export const configValueKey = (key: string) => `config:value:${key}`;
+
+// ---- 数据权限 ----
+
+/** 部门扁平树缓存（全局共享，部门增删改时失效） */
+export const deptFlatTreeKey = 'dept:flat-tree';

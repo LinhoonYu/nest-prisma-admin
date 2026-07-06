@@ -9,6 +9,7 @@ import { AllConfigType, IOauthConfig, OauthConfig } from '~/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { CaptchaService } from './captcha.service';
+import { DataScopeService } from './data-scope.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
@@ -72,6 +73,7 @@ function buildProviderMap(
     CaptchaService,
     RsaService,
     UserContextService,
+    DataScopeService,
     JwtStrategy,
     LocalStrategy,
     OAuthService,
@@ -86,6 +88,12 @@ function buildProviderMap(
       useClass: JwtAuthGuard,
     },
   ],
-  exports: [UserContextService, PasswordService, TokenService, SessionService],
+  exports: [
+    UserContextService,
+    PasswordService,
+    TokenService,
+    SessionService,
+    DataScopeService,
+  ],
 })
 export class AuthModule {}

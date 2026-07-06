@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
+import { DataScopeService } from '~/modules/auth/data-scope.service';
 import { PasswordService } from '~/modules/auth/password.service';
 import { UserContextService } from '~/modules/auth/user-context.service';
 import { PrismaService } from '~/shared/prisma/prisma.service';
@@ -21,10 +22,17 @@ export class UserService {
     private prisma: PrismaService,
     private passwordService: PasswordService,
     private userContextService: UserContextService,
+    private dataScopeService: DataScopeService,
   ) {}
 
-  async list(query: UserQueryDto) {
+  async list(query: UserQueryDto, currentUserId: string) {
     const { page, pageSize, username, nickname, deptId, status } = query;
+
+    const scope = await this.dataScopeService.resolve(currentUserId);
+    const scopeWhere = scope.selfOnly
+      ? { id: BigInt(currentUserId) }
+      : this.dataScopeService.buildDeptWhere(scope, deptId);
+
     const where = {
       ...(username && {
         username: { contains: username, mode: 'insensitive' as const },
@@ -32,7 +40,7 @@ export class UserService {
       ...(nickname && {
         nickname: { contains: nickname, mode: 'insensitive' as const },
       }),
-      ...(deptId && { deptId }),
+      ...scopeWhere,
       ...(status !== undefined && { status }),
     };
 

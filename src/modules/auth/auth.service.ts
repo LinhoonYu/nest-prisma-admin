@@ -114,7 +114,6 @@ export class AuthService {
     const identity = await this.prisma.userIdentity.findFirst({
       where: {
         userId: BigInt(userId),
-        deletedId: 0n,
         providerAvatar: { not: null },
       },
       select: { providerAvatar: true },

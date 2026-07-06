@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { CurrentUser } from '~/common/decorators/current-user.decorator';
 import { IdParam } from '~/common/dto/id-param.dto';
 import { Perm } from '~/common/decorators/perm.decorator';
 
@@ -16,8 +17,11 @@ export class LoginLogController {
   @Get()
   @ApiOperation({ summary: '登录日志列表' })
   @Perm(loginLogPermissions.LIST)
-  list(@Query() query: LoginLogQueryDto) {
-    return this.loginLogService.list(query);
+  list(
+    @Query() query: LoginLogQueryDto,
+    @CurrentUser('userId') userId: string,
+  ) {
+    return this.loginLogService.list(query, userId);
   }
 
   @Get(':id')

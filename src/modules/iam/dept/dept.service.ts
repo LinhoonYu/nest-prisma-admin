@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
 import { buildTree } from '~/common/utils/build-tree';
+import { DataScopeService } from '~/modules/auth/data-scope.service';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 
 import { CreateDeptDto, DeptQueryDto, UpdateDeptDto } from './dto/dept.dto';
@@ -12,7 +13,10 @@ const MAX_TREE_NODES = 5000;
 
 @Injectable()
 export class DeptService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private dataScopeService: DataScopeService,
+  ) {}
 
   async tree(query?: DeptQueryDto) {
     // 部门通常量不大，但仍加结果集上限保护，避免脏数据导致一次性拉全表
@@ -52,9 +56,12 @@ export class DeptService {
     });
     if (exists) throw new ApiException(ApiCode.BadRequest, '部门编码已存在');
 
-    return this.prisma.dept.create({
+    const result = await this.prisma.dept.create({
       data: { ...dto, createdBy: operatorId, updatedBy: operatorId },
     });
+
+    this.dataScopeService.invalidateDeptTree().catch(() => undefined);
+    return result;
   }
 
   async update(id: bigint, dto: UpdateDeptDto, operatorId: bigint) {
@@ -87,10 +94,13 @@ export class DeptService {
       if (exists) throw new ApiException(ApiCode.BadRequest, '部门编码已存在');
     }
 
-    return this.prisma.dept.update({
+    const result = await this.prisma.dept.update({
       where: { id },
       data: { ...dto, updatedBy: operatorId },
     });
+
+    this.dataScopeService.invalidateDeptTree().catch(() => undefined);
+    return result;
   }
 
   async remove(id: bigint, operatorId: bigint) {
@@ -110,7 +120,6 @@ export class DeptService {
     }
 
     await this.prisma.$transaction([
-      // 关联表不在软删除模型列表中，此处为物理删除
       this.prisma.userDataScopeDept.deleteMany({ where: { deptId: id } }),
       this.prisma.dept.update({
         where: { id },
@@ -121,6 +130,8 @@ export class DeptService {
         },
       }),
     ]);
+
+    this.dataScopeService.invalidateDeptTree().catch(() => undefined);
   }
 
   /**

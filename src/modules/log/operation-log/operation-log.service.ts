@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { AppLogger } from '~/common/logger/app-logger';
+import { DataScopeService } from '~/modules/auth/data-scope.service';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 
 import {
@@ -31,12 +32,13 @@ export interface OperationLogRecord {
 export class OperationLogService {
   constructor(
     private prisma: PrismaService,
+    private dataScopeService: DataScopeService,
     private readonly logger: AppLogger,
   ) {
     this.logger.setContext(OperationLogService.name);
   }
 
-  async list(query: OperationLogQueryDto) {
+  async list(query: OperationLogQueryDto, currentUserId: string) {
     const {
       page,
       pageSize,
@@ -51,8 +53,15 @@ export class OperationLogService {
       endTime,
     } = query;
 
+    const scope = await this.dataScopeService.resolve(currentUserId);
+    const scopeWhere = this.dataScopeService.buildLogWhere(
+      scope,
+      currentUserId,
+      userId,
+    );
+
     const where = {
-      ...(userId !== undefined && { userId }),
+      ...scopeWhere,
       ...(username && { username: { contains: username } }),
       ...(module && { module: { contains: module } }),
       ...(action && { action: { contains: action } }),
@@ -65,11 +74,12 @@ export class OperationLogService {
         }),
     };
 
+    const noPage = pageSize === 0;
+
     const [items, total] = await Promise.all([
       this.prisma.operationLog.findMany({
         where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        ...(noPage ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.operationLog.count({ where }),

@@ -42,7 +42,7 @@ export class DictItemService {
 
   async detail(id: bigint) {
     const dictItem = await this.prisma.dictItem.findUnique({ where: { id } });
-    if (!dictItem) throw new ApiException(ApiCode.DictNotFound, '字典项不存在');
+    if (!dictItem) throw new ApiException(ApiCode.DictNotFound);
     return dictItem;
   }
 
@@ -65,7 +65,7 @@ export class DictItemService {
 
   async update(id: bigint, dto: UpdateDictItemDto, operatorId: bigint) {
     const dictItem = await this.prisma.dictItem.findUnique({ where: { id } });
-    if (!dictItem) throw new ApiException(ApiCode.DictNotFound, '字典项不存在');
+    if (!dictItem) throw new ApiException(ApiCode.DictNotFound);
 
     if (dto.value !== undefined && dto.value !== dictItem.value) {
       await this.assertValueUnique(dictItem.dictTypeId, dto.value, id);
@@ -94,9 +94,9 @@ export class DictItemService {
       where: { id },
       include: { dictType: { select: { isSystem: true } } },
     });
-    if (!dictItem) throw new ApiException(ApiCode.DictNotFound, '字典项不存在');
+    if (!dictItem) throw new ApiException(ApiCode.DictNotFound);
     if (dictItem.dictType.isSystem) {
-      throw new ApiException(ApiCode.BadRequest, '系统内置字典项不可删除');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     return this.prisma.dictItem.update({
@@ -114,7 +114,7 @@ export class DictItemService {
       where: { id: dictTypeId },
       select: { id: true },
     });
-    if (!exists) throw new ApiException(ApiCode.DictNotFound, '字典类型不存在');
+    if (!exists) throw new ApiException(ApiCode.DictNotFound);
   }
 
   /** 同一字典类型下 value 唯一 */
@@ -131,7 +131,6 @@ export class DictItemService {
       },
       select: { id: true },
     });
-    if (exists)
-      throw new ApiException(ApiCode.BadRequest, '字典项值在该类型下已存在');
+    if (exists) throw new ApiException(ApiCode.BadRequest);
   }
 }

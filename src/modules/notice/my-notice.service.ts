@@ -70,14 +70,14 @@ export class MyNoticeService {
       where: { id: noticeId },
     });
     if (!notice || notice.deletedAt || notice.publishStatus !== 1) {
-      throw new ApiException(ApiCode.NoticeNotFound, '通知不存在');
+      throw new ApiException(ApiCode.NoticeNotFound);
     }
 
     // 鉴权：指定用户通知仅目标用户可见
     if (notice.targetType === 2) {
       const ids = (notice.targetUserIds as number[]) ?? [];
       if (!ids.includes(Number(userId))) {
-        throw new ApiException(ApiCode.NotFound, '通知不存在');
+        throw new ApiException(ApiCode.NotFound);
       }
     }
 

@@ -42,7 +42,7 @@ export class LocalAuthGuard extends AuthGuard('local') {
       // 验证码前置校验
       if (this.securityConfig.captcha.enabled) {
         if (!body.captchaKey || !body.captchaCode) {
-          throw new ApiException(ApiCode.CaptchaError, '请输入验证码');
+          throw new ApiException(ApiCode.CaptchaError);
         }
         await this.captchaService.verify(body.captchaKey, body.captchaCode);
       }
@@ -59,16 +59,10 @@ export class LocalAuthGuard extends AuthGuard('local') {
   handleRequest<TUser>(
     err: Error | null,
     user: TUser | false,
-    info: { message?: string } | undefined,
+    _info: { message?: string } | undefined,
   ): TUser {
     if (err || !user) {
-      throw (
-        err ||
-        new ApiException(
-          ApiCode.AccountOrPasswordError,
-          info?.message || '用户名或密码错误',
-        )
-      );
+      throw err || new ApiException(ApiCode.AccountOrPasswordError);
     }
     return user;
   }

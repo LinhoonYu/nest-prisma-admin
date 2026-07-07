@@ -26,7 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<JwtPayload> {
     const active = await this.sessionService.isActive(payload.sessionId);
     if (!active) {
-      throw new ApiException(ApiCode.SessionExpired, '会话已失效，请重新登录');
+      throw new ApiException(ApiCode.SessionExpired);
     }
     return { userId: payload.userId, sessionId: payload.sessionId };
   }

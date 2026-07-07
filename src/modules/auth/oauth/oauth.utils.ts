@@ -151,13 +151,11 @@ async function doRequest(
       return await requestViaProxy(url, init);
     }
     return await requestDirect(url, init);
-  } catch (e) {
-    const reason = e instanceof Error ? e.message : String(e);
+  } catch {
     throw new ApiException(
       init.method === 'POST'
         ? ApiCode.OAuthCodeExchangeFailed
         : ApiCode.OAuthUserInfoFailed,
-      `OAuth 请求失败: ${reason}`,
     );
   }
 }
@@ -188,11 +186,7 @@ export async function postJson<T>(
   );
 
   if (res.status < 200 || res.status >= 300) {
-    const detail = await res.text().catch(() => '');
-    throw new ApiException(
-      ApiCode.OAuthCodeExchangeFailed,
-      `OAuth token 交换失败: HTTP ${res.status} ${detail}`,
-    );
+    throw new ApiException(ApiCode.OAuthCodeExchangeFailed);
   }
 
   return res.json<T>();
@@ -216,10 +210,7 @@ export async function getJson<T>(
   );
 
   if (res.status < 200 || res.status >= 300) {
-    throw new ApiException(
-      ApiCode.OAuthUserInfoFailed,
-      `OAuth 用户信息获取失败: HTTP ${res.status}`,
-    );
+    throw new ApiException(ApiCode.OAuthUserInfoFailed);
   }
 
   return res.json<T>();

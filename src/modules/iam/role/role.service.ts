@@ -45,7 +45,7 @@ export class RoleService {
         rolePermissions: { select: { permissionId: true } },
       },
     });
-    if (!role) throw new ApiException(ApiCode.RoleNotFound, '角色不存在');
+    if (!role) throw new ApiException(ApiCode.RoleNotFound);
 
     const { roleMenus, rolePermissions, ...rest } = role;
     return {
@@ -60,7 +60,7 @@ export class RoleService {
       where: { code: dto.code },
       select: { id: true },
     });
-    if (exists) throw new ApiException(ApiCode.BadRequest, '角色编码已存在');
+    if (exists) throw new ApiException(ApiCode.BadRequest);
 
     return this.prisma.role.create({
       data: { ...dto, createdBy: operatorId, updatedBy: operatorId },
@@ -69,12 +69,9 @@ export class RoleService {
 
   async update(id: bigint, dto: UpdateRoleDto, operatorId: bigint) {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new ApiException(ApiCode.RoleNotFound, '角色不存在');
+    if (!role) throw new ApiException(ApiCode.RoleNotFound);
     if (role.isSystem && dto.code !== undefined && dto.code !== role.code) {
-      throw new ApiException(
-        ApiCode.SystemDataCodeImmutable,
-        '系统内置角色编码不可修改',
-      );
+      throw new ApiException(ApiCode.SystemDataCodeImmutable);
     }
 
     if (dto.code !== undefined && dto.code !== role.code) {
@@ -82,7 +79,7 @@ export class RoleService {
         where: { code: dto.code, NOT: { id } },
         select: { id: true },
       });
-      if (exists) throw new ApiException(ApiCode.BadRequest, '角色编码已存在');
+      if (exists) throw new ApiException(ApiCode.BadRequest);
     }
 
     return this.prisma.role.update({
@@ -93,16 +90,16 @@ export class RoleService {
 
   async remove(id: bigint, operatorId: bigint) {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new ApiException(ApiCode.RoleNotFound, '角色不存在');
+    if (!role) throw new ApiException(ApiCode.RoleNotFound);
     if (role.isSystem) {
-      throw new ApiException(ApiCode.BadRequest, '系统内置角色不可删除');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     const userCount = await this.prisma.userRole.count({
       where: { roleId: id },
     });
     if (userCount > 0) {
-      throw new ApiException(ApiCode.BadRequest, '角色下存在用户，无法删除');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     await this.prisma.$transaction([
@@ -122,7 +119,7 @@ export class RoleService {
 
   async assignMenus(id: bigint, dto: AssignMenusDto, operatorId: bigint) {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new ApiException(ApiCode.RoleNotFound, '角色不存在');
+    if (!role) throw new ApiException(ApiCode.RoleNotFound);
 
     const menuIds = dto.menuIds.map((mid) => BigInt(mid));
 
@@ -131,7 +128,7 @@ export class RoleService {
         where: { id: { in: menuIds } },
       });
       if (validCount !== menuIds.length) {
-        throw new ApiException(ApiCode.BadRequest, '部分菜单不存在');
+        throw new ApiException(ApiCode.BadRequest);
       }
     }
 
@@ -155,7 +152,7 @@ export class RoleService {
     operatorId: bigint,
   ) {
     const role = await this.prisma.role.findUnique({ where: { id } });
-    if (!role) throw new ApiException(ApiCode.RoleNotFound, '角色不存在');
+    if (!role) throw new ApiException(ApiCode.RoleNotFound);
 
     const permissionIds = dto.permissionIds.map((pid) => BigInt(pid));
 
@@ -164,7 +161,7 @@ export class RoleService {
         where: { id: { in: permissionIds } },
       });
       if (validCount !== permissionIds.length) {
-        throw new ApiException(ApiCode.BadRequest, '部分权限不存在');
+        throw new ApiException(ApiCode.BadRequest);
       }
     }
 

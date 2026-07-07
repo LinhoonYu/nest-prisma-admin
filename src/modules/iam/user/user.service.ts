@@ -89,7 +89,7 @@ export class UserService {
         },
       },
     });
-    if (!user) throw new ApiException(ApiCode.UserNotFound, '用户不存在');
+    if (!user) throw new ApiException(ApiCode.UserNotFound);
 
     const { userRoles, ...rest } = user;
     return {
@@ -103,23 +103,21 @@ export class UserService {
       where: { username: dto.username },
       select: { id: true },
     });
-    if (exists)
-      throw new ApiException(ApiCode.DuplicateUsername, '用户名已存在');
+    if (exists) throw new ApiException(ApiCode.DuplicateUsername);
 
     if (dto.email) {
       const emailExists = await this.prisma.user.findFirst({
         where: { email: dto.email },
         select: { id: true },
       });
-      if (emailExists)
-        throw new ApiException(ApiCode.DuplicateEmail, '邮箱已存在');
+      if (emailExists) throw new ApiException(ApiCode.DuplicateEmail);
     }
 
     if (dto.deptId) {
       const dept = await this.prisma.dept.findUnique({
         where: { id: dto.deptId },
       });
-      if (!dept) throw new ApiException(ApiCode.DeptNotFound, '部门不存在');
+      if (!dept) throw new ApiException(ApiCode.DeptNotFound);
     }
 
     if (dto.avatarFileId != null) {
@@ -127,7 +125,7 @@ export class UserService {
         where: { id: dto.avatarFileId },
         select: { id: true },
       });
-      if (!file) throw new ApiException(ApiCode.FileNotFound, '头像文件不存在');
+      if (!file) throw new ApiException(ApiCode.FileNotFound);
     }
 
     const passwordHash = await this.passwordService.hash(dto.password);
@@ -163,22 +161,21 @@ export class UserService {
 
   async update(id: bigint, dto: UpdateUserDto, operatorId: bigint) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new ApiException(ApiCode.UserNotFound, '用户不存在');
+    if (!user) throw new ApiException(ApiCode.UserNotFound);
 
     if (dto.email && dto.email !== user.email) {
       const emailExists = await this.prisma.user.findFirst({
         where: { email: dto.email, NOT: { id } },
         select: { id: true },
       });
-      if (emailExists)
-        throw new ApiException(ApiCode.DuplicateEmail, '邮箱已存在');
+      if (emailExists) throw new ApiException(ApiCode.DuplicateEmail);
     }
 
     if (dto.deptId != null && dto.deptId !== user.deptId) {
       const dept = await this.prisma.dept.findUnique({
         where: { id: dto.deptId },
       });
-      if (!dept) throw new ApiException(ApiCode.DeptNotFound, '部门不存在');
+      if (!dept) throw new ApiException(ApiCode.DeptNotFound);
     }
 
     if (dto.avatarFileId != null) {
@@ -186,7 +183,7 @@ export class UserService {
         where: { id: dto.avatarFileId },
         select: { id: true },
       });
-      if (!file) throw new ApiException(ApiCode.FileNotFound, '头像文件不存在');
+      if (!file) throw new ApiException(ApiCode.FileNotFound);
     }
 
     const updated = await this.prisma.user.update({
@@ -203,9 +200,9 @@ export class UserService {
 
   async remove(id: bigint, operatorId: bigint) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new ApiException(ApiCode.UserNotFound, '用户不存在');
+    if (!user) throw new ApiException(ApiCode.UserNotFound);
     if (user.isSuperAdmin) {
-      throw new ApiException(ApiCode.BadRequest, '超级管理员不可删除');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     await this.prisma.$transaction([
@@ -225,7 +222,7 @@ export class UserService {
 
   async assignRoles(id: bigint, dto: AssignRolesDto, operatorId: bigint) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new ApiException(ApiCode.UserNotFound, '用户不存在');
+    if (!user) throw new ApiException(ApiCode.UserNotFound);
 
     const roleIds = dto.roleIds.map((rid) => BigInt(rid));
 
@@ -234,7 +231,7 @@ export class UserService {
         where: { id: { in: roleIds } },
       });
       if (validCount !== roleIds.length) {
-        throw new ApiException(ApiCode.BadRequest, '部分角色不存在');
+        throw new ApiException(ApiCode.BadRequest);
       }
     }
 
@@ -262,7 +259,7 @@ export class UserService {
     operatorId: bigint,
   ) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new ApiException(ApiCode.UserNotFound, '用户不存在');
+    if (!user) throw new ApiException(ApiCode.UserNotFound);
 
     const deptIds = (dto.deptIds ?? []).map((did) => BigInt(did));
 
@@ -279,7 +276,7 @@ export class UserService {
           where: { id: { in: deptIds } },
         });
         if (validCount !== deptIds.length) {
-          throw new ApiException(ApiCode.BadRequest, '部分部门不存在');
+          throw new ApiException(ApiCode.BadRequest);
         }
 
         await tx.userDataScopeDept.createMany({
@@ -294,7 +291,7 @@ export class UserService {
 
   async resetPassword(id: bigint, dto: ResetPasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new ApiException(ApiCode.UserNotFound, '用户不存在');
+    if (!user) throw new ApiException(ApiCode.UserNotFound);
 
     const passwordHash = await this.passwordService.hash(dto.password);
 

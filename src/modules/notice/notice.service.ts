@@ -49,7 +49,7 @@ export class NoticeService {
       where: { id },
     });
     if (!notice || notice.deletedAt) {
-      throw new ApiException(ApiCode.NoticeNotFound, '通知不存在');
+      throw new ApiException(ApiCode.NoticeNotFound);
     }
     return notice;
   }
@@ -59,7 +59,7 @@ export class NoticeService {
       dto.targetType === 2 &&
       (!dto.targetUserIds || dto.targetUserIds.length === 0)
     ) {
-      throw new ApiException(ApiCode.BadRequest, '指定用户不能为空');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     return this.prisma.notice.create({
@@ -79,10 +79,10 @@ export class NoticeService {
   async update(id: bigint, dto: UpdateNoticeDto, operatorId: bigint) {
     const notice = await this.prisma.notice.findUnique({ where: { id } });
     if (!notice || notice.deletedAt) {
-      throw new ApiException(ApiCode.NoticeNotFound, '通知不存在');
+      throw new ApiException(ApiCode.NoticeNotFound);
     }
     if (notice.publishStatus === 1) {
-      throw new ApiException(ApiCode.BadRequest, '已发布通知不可修改');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     if (
@@ -90,7 +90,7 @@ export class NoticeService {
       dto.targetUserIds !== undefined &&
       dto.targetUserIds.length === 0
     ) {
-      throw new ApiException(ApiCode.BadRequest, '指定用户不能为空');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     return this.prisma.notice.update({
@@ -112,13 +112,10 @@ export class NoticeService {
   async remove(id: bigint) {
     const notice = await this.prisma.notice.findUnique({ where: { id } });
     if (!notice || notice.deletedAt) {
-      throw new ApiException(ApiCode.NoticeNotFound, '通知不存在');
+      throw new ApiException(ApiCode.NoticeNotFound);
     }
     if (notice.publishStatus === 1) {
-      throw new ApiException(
-        ApiCode.BadRequest,
-        '已发布通知不可删除，请先撤回',
-      );
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     return this.prisma.notice.update({
@@ -134,10 +131,7 @@ export class NoticeService {
 
     const published = notices.filter((n) => n.publishStatus === 1);
     if (published.length > 0) {
-      throw new ApiException(
-        ApiCode.BadRequest,
-        `通知 ${published.map((n) => n.id.toString()).join(', ')} 已发布，请先撤回`,
-      );
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     const result = await this.prisma.notice.updateMany({
@@ -150,13 +144,13 @@ export class NoticeService {
   async publish(id: bigint, operatorId: bigint) {
     const notice = await this.prisma.notice.findUnique({ where: { id } });
     if (!notice || notice.deletedAt) {
-      throw new ApiException(ApiCode.NoticeNotFound, '通知不存在');
+      throw new ApiException(ApiCode.NoticeNotFound);
     }
     if (notice.publishStatus === 1) {
-      throw new ApiException(ApiCode.NoticeAlreadyPublished, '通知已发布');
+      throw new ApiException(ApiCode.NoticeAlreadyPublished);
     }
     if (notice.publishStatus === -1) {
-      throw new ApiException(ApiCode.BadRequest, '已撤回通知不可重新发布');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     const updated = await this.prisma.notice.update({
@@ -176,10 +170,10 @@ export class NoticeService {
   async revoke(id: bigint, operatorId: bigint) {
     const notice = await this.prisma.notice.findUnique({ where: { id } });
     if (!notice || notice.deletedAt) {
-      throw new ApiException(ApiCode.NoticeNotFound, '通知不存在');
+      throw new ApiException(ApiCode.NoticeNotFound);
     }
     if (notice.publishStatus !== 1) {
-      throw new ApiException(ApiCode.NoticeNotPublished, '仅已发布通知可撤回');
+      throw new ApiException(ApiCode.NoticeNotPublished);
     }
 
     const updated = await this.prisma.notice.update({

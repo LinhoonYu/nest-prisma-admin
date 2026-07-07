@@ -34,24 +34,20 @@ export class LocalStrategy extends PassportStrategy(Strategy, 'local') {
       where: { username, deletedId: 0n },
     });
     if (!user) {
-      throw new ApiException(
-        ApiCode.AccountOrPasswordError,
-        '用户名或密码错误',
-      );
+      throw new ApiException(ApiCode.AccountOrPasswordError);
     }
 
     if (user.status === 0) {
-      throw new ApiException(ApiCode.AccountDisabled, '账号已禁用');
+      throw new ApiException(ApiCode.AccountDisabled);
     }
 
     if (await this.passwordService.isLocked(user.id)) {
       const minutes = await this.passwordService.getLockedRemainingMinutes(
         user.id,
       );
-      throw new ApiException(
-        ApiCode.AccountLocked,
-        `账号已锁定，请 ${minutes} 分钟后重试`,
-      );
+      throw new ApiException(ApiCode.AccountLocked, {
+        minutes: String(minutes),
+      });
     }
 
     // RSA 启用时 password 是密文，关闭时是明文
@@ -69,10 +65,7 @@ export class LocalStrategy extends PassportStrategy(Strategy, 'local') {
     );
     if (!verified) {
       await this.passwordService.recordFailure(user.id);
-      throw new ApiException(
-        ApiCode.AccountOrPasswordError,
-        '用户名或密码错误',
-      );
+      throw new ApiException(ApiCode.AccountOrPasswordError);
     }
 
     await this.passwordService.recordSuccess(user.id);

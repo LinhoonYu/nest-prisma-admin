@@ -103,7 +103,7 @@ export class OAuthService {
       oauthStateKey(state),
     );
     if (!ctx || ctx.providerCode !== providerCode) {
-      throw new ApiException(ApiCode.OAuthStateInvalid, 'OAuth state 无效');
+      throw new ApiException(ApiCode.OAuthStateInvalid);
     }
 
     // 绑定模式：不消费 state，透传 code/state 给前端
@@ -129,7 +129,7 @@ export class OAuthService {
     // 已绑定：直接登录
     if (existingIdentity) {
       if (existingIdentity.user.status !== 1) {
-        throw new ApiException(ApiCode.AccountDisabled, '账号已禁用');
+        throw new ApiException(ApiCode.AccountDisabled);
       }
       await this.prisma.userIdentity.update({
         where: { id: existingIdentity.id },
@@ -174,10 +174,7 @@ export class OAuthService {
       oauthExchangeKey(exchangeCode),
     );
     if (!payload) {
-      throw new ApiException(
-        ApiCode.OAuthExchangeCodeInvalid,
-        '交换码无效或已过期',
-      );
+      throw new ApiException(ApiCode.OAuthExchangeCodeInvalid);
     }
     return payload;
   }
@@ -251,24 +248,20 @@ export class OAuthService {
       where: { username },
     });
     if (!user) {
-      throw new ApiException(
-        ApiCode.AccountOrPasswordError,
-        '用户名或密码错误',
-      );
+      throw new ApiException(ApiCode.AccountOrPasswordError);
     }
 
     if (user.status === 0) {
-      throw new ApiException(ApiCode.AccountDisabled, '账号已禁用');
+      throw new ApiException(ApiCode.AccountDisabled);
     }
 
     if (await this.passwordService.isLocked(user.id)) {
       const minutes = await this.passwordService.getLockedRemainingMinutes(
         user.id,
       );
-      throw new ApiException(
-        ApiCode.AccountLocked,
-        `账号已锁定，请 ${minutes} 分钟后重试`,
-      );
+      throw new ApiException(ApiCode.AccountLocked, {
+        minutes: String(minutes),
+      });
     }
 
     let plainPassword = password;
@@ -283,10 +276,7 @@ export class OAuthService {
     );
     if (!verified) {
       await this.passwordService.recordFailure(user.id);
-      throw new ApiException(
-        ApiCode.AccountOrPasswordError,
-        '用户名或密码错误',
-      );
+      throw new ApiException(ApiCode.AccountOrPasswordError);
     }
 
     await this.passwordService.recordSuccess(user.id);
@@ -297,10 +287,7 @@ export class OAuthService {
       select: { id: true },
     });
     if (selfIdentity) {
-      throw new ApiException(
-        ApiCode.OAuthProviderAlreadyLinked,
-        '该账号已绑定此登录方式',
-      );
+      throw new ApiException(ApiCode.OAuthProviderAlreadyLinked);
     }
 
     try {
@@ -325,10 +312,7 @@ export class OAuthService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
-        throw new ApiException(
-          ApiCode.OAuthIdentityAlreadyBound,
-          '该第三方账号已被其他用户绑定',
-        );
+        throw new ApiException(ApiCode.OAuthIdentityAlreadyBound);
       }
       throw e;
     }
@@ -356,13 +340,13 @@ export class OAuthService {
     let codeVerifier: string | null = null;
     if (strategy.supportsPkce) {
       if (!state) {
-        throw new ApiException(ApiCode.OAuthStateInvalid, 'OAuth state 无效');
+        throw new ApiException(ApiCode.OAuthStateInvalid);
       }
       const ctx = await this.redis.getAndDelete<OAuthStateContext>(
         oauthStateKey(state),
       );
       if (!ctx || ctx.providerCode !== providerCode) {
-        throw new ApiException(ApiCode.OAuthStateInvalid, 'OAuth state 无效');
+        throw new ApiException(ApiCode.OAuthStateInvalid);
       }
       codeVerifier = ctx.codeVerifier;
     }
@@ -379,15 +363,9 @@ export class OAuthService {
 
     if (existingIdentity) {
       if (existingIdentity.userId.toString() === userId) {
-        throw new ApiException(
-          ApiCode.OAuthProviderAlreadyLinked,
-          '您已绑定该登录方式',
-        );
+        throw new ApiException(ApiCode.OAuthProviderAlreadyLinked);
       }
-      throw new ApiException(
-        ApiCode.OAuthIdentityAlreadyBound,
-        '该第三方账号已被其他用户绑定',
-      );
+      throw new ApiException(ApiCode.OAuthIdentityAlreadyBound);
     }
 
     const selfIdentity = await this.prisma.userIdentity.findFirst({
@@ -395,10 +373,7 @@ export class OAuthService {
       select: { id: true },
     });
     if (selfIdentity) {
-      throw new ApiException(
-        ApiCode.OAuthProviderAlreadyLinked,
-        '您已绑定该登录方式',
-      );
+      throw new ApiException(ApiCode.OAuthProviderAlreadyLinked);
     }
 
     try {
@@ -423,10 +398,7 @@ export class OAuthService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
-        throw new ApiException(
-          ApiCode.OAuthIdentityAlreadyBound,
-          '该第三方账号已被其他用户绑定',
-        );
+        throw new ApiException(ApiCode.OAuthIdentityAlreadyBound);
       }
       throw e;
     }
@@ -438,11 +410,11 @@ export class OAuthService {
     });
 
     if (!identity) {
-      throw new ApiException(ApiCode.NotFound, '绑定记录不存在');
+      throw new ApiException(ApiCode.NotFound);
     }
 
     if (identity.userId.toString() !== userId) {
-      throw new ApiException(ApiCode.NoPermission, '无权操作');
+      throw new ApiException(ApiCode.NoPermission);
     }
 
     const [otherIdentities, credential] = await Promise.all([
@@ -459,10 +431,7 @@ export class OAuthService {
     ]);
 
     if (otherIdentities === 0 && !credential) {
-      throw new ApiException(
-        ApiCode.OAuthCannotUnbindLastIdentity,
-        '无法解绑最后一个登录方式',
-      );
+      throw new ApiException(ApiCode.OAuthCannotUnbindLastIdentity);
     }
 
     await this.prisma.userIdentity.update({
@@ -515,10 +484,7 @@ export class OAuthService {
       oauthPendingKey(pendingCode),
     );
     if (!payload) {
-      throw new ApiException(
-        ApiCode.OAuthPendingInvalid,
-        '授权已过期，请重新登录',
-      );
+      throw new ApiException(ApiCode.OAuthPendingInvalid);
     }
     return payload;
   }
@@ -559,10 +525,9 @@ export class OAuthService {
   private getStrategy(providerCode: string): OAuthProviderStrategy {
     const strategy = this.providerMap.get(providerCode);
     if (!strategy) {
-      throw new ApiException(
-        ApiCode.OAuthProviderNotFound,
-        `不支持的登录方式: ${providerCode}`,
-      );
+      throw new ApiException(ApiCode.OAuthProviderNotFound, {
+        provider: providerCode,
+      });
     }
     return strategy;
   }

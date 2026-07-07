@@ -54,7 +54,7 @@ export class ConfigService {
   async detail(id: bigint) {
     const config = await this.prisma.config.findUnique({ where: { id } });
     if (!config) {
-      throw new ApiException(ApiCode.ConfigNotFound, '配置不存在');
+      throw new ApiException(ApiCode.ConfigNotFound);
     }
     return config;
   }
@@ -71,7 +71,7 @@ export class ConfigService {
       },
     });
     if (!config) {
-      throw new ApiException(ApiCode.ConfigNotFound, '配置不存在');
+      throw new ApiException(ApiCode.ConfigNotFound);
     }
     return config;
   }
@@ -86,7 +86,7 @@ export class ConfigService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
-        throw new ApiException(ApiCode.DuplicateConfigKey, '配置键已存在');
+        throw new ApiException(ApiCode.DuplicateConfigKey);
       }
       throw e;
     }
@@ -95,17 +95,14 @@ export class ConfigService {
   async update(id: bigint, dto: UpdateConfigDto, operatorId: bigint) {
     const config = await this.prisma.config.findUnique({ where: { id } });
     if (!config) {
-      throw new ApiException(ApiCode.ConfigNotFound, '配置不存在');
+      throw new ApiException(ApiCode.ConfigNotFound);
     }
     if (
       config.isSystem &&
       dto.configKey !== undefined &&
       dto.configKey !== config.configKey
     ) {
-      throw new ApiException(
-        ApiCode.SystemConfigCannotModify,
-        '系统内置配置键不可修改',
-      );
+      throw new ApiException(ApiCode.SystemConfigCannotModify);
     }
 
     if (dto.configKey !== undefined && dto.configKey !== config.configKey) {
@@ -114,7 +111,7 @@ export class ConfigService {
         select: { id: true },
       });
       if (exists) {
-        throw new ApiException(ApiCode.DuplicateConfigKey, '配置键已存在');
+        throw new ApiException(ApiCode.DuplicateConfigKey);
       }
     }
 
@@ -137,7 +134,7 @@ export class ConfigService {
         e instanceof Prisma.PrismaClientKnownRequestError &&
         e.code === 'P2002'
       ) {
-        throw new ApiException(ApiCode.DuplicateConfigKey, '配置键已存在');
+        throw new ApiException(ApiCode.DuplicateConfigKey);
       }
       throw e;
     }
@@ -154,13 +151,10 @@ export class ConfigService {
   async remove(id: bigint) {
     const config = await this.prisma.config.findUnique({ where: { id } });
     if (!config) {
-      throw new ApiException(ApiCode.ConfigNotFound, '配置不存在');
+      throw new ApiException(ApiCode.ConfigNotFound);
     }
     if (config.isSystem) {
-      throw new ApiException(
-        ApiCode.SystemConfigCannotModify,
-        '系统内置配置不可删除',
-      );
+      throw new ApiException(ApiCode.SystemConfigCannotModify);
     }
 
     await this.prisma.config.delete({ where: { id } });

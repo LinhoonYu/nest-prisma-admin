@@ -98,7 +98,7 @@ export class AuthService {
   async profile(userId: string) {
     const user = await this.userContextService.getUser(userId);
     if (!user) {
-      throw new ApiException(ApiCode.UserNotFound, '用户不存在');
+      throw new ApiException(ApiCode.UserNotFound);
     }
 
     const [roles, permissions, avatarUrl] = await Promise.all([

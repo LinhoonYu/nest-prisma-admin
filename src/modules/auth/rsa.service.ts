@@ -148,7 +148,7 @@ export class RsaService implements OnModuleInit, OnModuleDestroy {
 
   async getPublicKey(): Promise<{ publicKey: string }> {
     if (!this.securityConfig.rsa.enabled) {
-      throw new ApiException(ApiCode.RsaDisabled, 'RSA 加密未开启');
+      throw new ApiException(ApiCode.RsaDisabled);
     }
 
     const publicKey = await this.redis.getCache<string>(RSA_PUB_KEY);
@@ -179,10 +179,7 @@ export class RsaService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.logger.warn('RSA decryption failed: no matching private key');
-    throw new ApiException(
-      ApiCode.RsaDecryptFailed,
-      '密码解密失败，请重新获取公钥后重试',
-    );
+    throw new ApiException(ApiCode.RsaDecryptFailed);
   }
 
   private tryDecrypt(privateKey: string, encryptedData: string): string | null {

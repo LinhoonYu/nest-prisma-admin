@@ -41,8 +41,7 @@ export class PermissionService {
     const permission = await this.prisma.permission.findUnique({
       where: { id },
     });
-    if (!permission)
-      throw new ApiException(ApiCode.PermissionNotFound, '权限不存在');
+    if (!permission) throw new ApiException(ApiCode.PermissionNotFound);
     return permission;
   }
 
@@ -51,7 +50,7 @@ export class PermissionService {
       where: { code: dto.code },
       select: { id: true },
     });
-    if (exists) throw new ApiException(ApiCode.BadRequest, '权限编码已存在');
+    if (exists) throw new ApiException(ApiCode.BadRequest);
 
     return this.prisma.permission.create({
       data: { ...dto, createdBy: operatorId, updatedBy: operatorId },
@@ -60,17 +59,14 @@ export class PermissionService {
 
   async update(id: bigint, dto: UpdatePermissionDto, operatorId: bigint) {
     const perm = await this.prisma.permission.findUnique({ where: { id } });
-    if (!perm) throw new ApiException(ApiCode.PermissionNotFound, '权限不存在');
+    if (!perm) throw new ApiException(ApiCode.PermissionNotFound);
     if (perm.isSystem) {
       const codeChanged = dto.code !== undefined && dto.code !== perm.code;
       const methodChanged =
         dto.method !== undefined && dto.method !== perm.method;
       const pathChanged = dto.path !== undefined && dto.path !== perm.path;
       if (codeChanged || methodChanged || pathChanged) {
-        throw new ApiException(
-          ApiCode.SystemDataCodeImmutable,
-          '系统内置权限标识不可修改',
-        );
+        throw new ApiException(ApiCode.SystemDataCodeImmutable);
       }
     }
 
@@ -79,7 +75,7 @@ export class PermissionService {
         where: { code: dto.code, NOT: { id } },
         select: { id: true },
       });
-      if (exists) throw new ApiException(ApiCode.BadRequest, '权限编码已存在');
+      if (exists) throw new ApiException(ApiCode.BadRequest);
     }
 
     return this.prisma.permission.update({
@@ -90,9 +86,9 @@ export class PermissionService {
 
   async remove(id: bigint, operatorId: bigint) {
     const perm = await this.prisma.permission.findUnique({ where: { id } });
-    if (!perm) throw new ApiException(ApiCode.PermissionNotFound, '权限不存在');
+    if (!perm) throw new ApiException(ApiCode.PermissionNotFound);
     if (perm.isSystem) {
-      throw new ApiException(ApiCode.BadRequest, '系统内置权限不可删除');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     await this.prisma.$transaction([

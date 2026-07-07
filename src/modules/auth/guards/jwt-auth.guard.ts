@@ -32,7 +32,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     const token = this.extractToken(request);
 
     if (!token) {
-      throw new ApiException(ApiCode.TokenMissing, '请先登录');
+      throw new ApiException(ApiCode.TokenMissing);
     }
 
     await super.canActivate(context);
@@ -52,7 +52,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       payload.userId,
     );
     if (!permCodes.some((code) => userPerms.includes(code))) {
-      throw new ApiException(ApiCode.NoPermission, '权限不足');
+      throw new ApiException(ApiCode.NoPermission);
     }
 
     return true;
@@ -60,7 +60,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   handleRequest<TUser = any>(err: any, user: any): TUser {
     if (err || !user) {
-      throw new ApiException(ApiCode.TokenInvalid, '令牌无效或已过期');
+      throw new ApiException(ApiCode.TokenInvalid);
     }
     return user as TUser;
   }

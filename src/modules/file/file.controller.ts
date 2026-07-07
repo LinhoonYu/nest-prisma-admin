@@ -59,7 +59,7 @@ export class FileController {
     @CurrentUser('userId') userId: string,
   ) {
     const file = await request.file();
-    if (!file) throw new ApiException(ApiCode.BadRequest, '未收到文件');
+    if (!file) throw new ApiException(ApiCode.BadRequest);
 
     const buffer = await file.toBuffer();
     return this.fileService.upload(

@@ -1,0 +1,5 @@
+{
+  "SUCCESS": "操作成功",
+  "INTERNAL_ERROR": "服务器内部错误",
+  "BAD_REQUEST": "请求错误"
+}

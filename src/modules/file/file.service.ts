@@ -30,10 +30,7 @@ export class FileService {
 
   async upload(file: UploadedFile, userId: bigint) {
     if (file.buffer.length > this.storageConfig.maxFileSize * 1024 * 1024) {
-      throw new ApiException(
-        ApiCode.FileTooLarge,
-        `文件大小不能超过 ${this.storageConfig.maxFileSize}MB`,
-      );
+      throw new ApiException(ApiCode.FileTooLarge);
     }
 
     const ext = extname(file.originalName);
@@ -76,7 +73,7 @@ export class FileService {
       where: { objectKey: key },
       select: { id: true },
     });
-    if (!file) throw new ApiException(ApiCode.FileNotFound, '文件不存在');
+    if (!file) throw new ApiException(ApiCode.FileNotFound);
 
     await this.prisma.file.delete({ where: { id: file.id } });
     await this.s3.delete(key).catch((err) => {
@@ -91,7 +88,7 @@ export class FileService {
       where: { objectKey: key },
       select: { originalName: true, mimeType: true },
     });
-    if (!file) throw new ApiException(ApiCode.FileNotFound, '文件不存在');
+    if (!file) throw new ApiException(ApiCode.FileNotFound);
 
     const url = await this.s3.presignGet(key);
     return {
@@ -106,7 +103,7 @@ export class FileService {
       where: { id },
       select: { objectKey: true, originalName: true, mimeType: true },
     });
-    if (!file) throw new ApiException(ApiCode.FileNotFound, '文件不存在');
+    if (!file) throw new ApiException(ApiCode.FileNotFound);
 
     const url = await this.s3.presignGet(file.objectKey);
     return {
@@ -123,7 +120,7 @@ export class FileService {
       where: { id },
       select: { objectKey: true, mimeType: true },
     });
-    if (!file) throw new ApiException(ApiCode.FileNotFound, '文件不存在');
+    if (!file) throw new ApiException(ApiCode.FileNotFound);
 
     return this.s3.getObjectStream(file.objectKey);
   }

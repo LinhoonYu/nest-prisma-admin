@@ -1,0 +1,12 @@
+{
+  "NOT_EMPTY": "{property} cannot be empty",
+  "IS_STRING": "{property} must be a string",
+  "IS_NUMBER": "{property} must be a number",
+  "IS_BOOLEAN": "{property} must be a boolean",
+  "IS_ARRAY": "{property} must be an array",
+  "IS_EMAIL": "Invalid email format",
+  "MIN_LENGTH": "{property} must be at least {constraints.0} characters",
+  "MAX_LENGTH": "{property} must be at most {constraints.0} characters",
+  "IS_INT": "{property} must be an integer",
+  "IS_ENUM": "{property} value is invalid"
+}

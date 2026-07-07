@@ -1,0 +1,12 @@
+{
+  "NOT_EMPTY": "{property} 不能为空",
+  "IS_STRING": "{property} 必须为字符串",
+  "IS_NUMBER": "{property} 必须为数字",
+  "IS_BOOLEAN": "{property} 必须为布尔值",
+  "IS_ARRAY": "{property} 必须为数组",
+  "IS_EMAIL": "邮箱格式不正确",
+  "MIN_LENGTH": "{property} 长度不能少于 {constraints.0} 位",
+  "MAX_LENGTH": "{property} 长度不能超过 {constraints.0} 位",
+  "IS_INT": "{property} 必须为整数",
+  "IS_ENUM": "{property} 值无效"
+}

@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { map, Observable } from 'rxjs';
+import { I18nService } from 'nestjs-i18n';
 
 import { ApiResult } from '~/common/model/api.model';
 import { bigintReplacer } from '~/common/utils/bigint';
@@ -17,7 +18,10 @@ export class TransformInterceptor<T> implements NestInterceptor<
   T,
   ApiResult<T> | T
 > {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly i18n: I18nService,
+  ) {}
 
   intercept(
     context: ExecutionContext,
@@ -30,25 +34,25 @@ export class TransformInterceptor<T> implements NestInterceptor<
       context.getClass(),
     ]);
 
+    const successMessage = String(this.i18n.t('common.SUCCESS'));
+
     return next.handle().pipe(
       map((data) => {
         if (isRaw) return data;
-        // logout 等接口可能返回 undefined，直接放行，避免 JSON.parse(undefined) 抛错
         if (data === undefined || data === null) {
-          return ApiResult.success(data);
+          return ApiResult.success(data, successMessage);
         }
-        // BigInt 不能被 JSON.stringify 直接序列化，走 replacer 转 string
         const sanitized = JSON.parse(
           JSON.stringify(data, bigintReplacer),
         ) as unknown as T;
-        return ApiResult.success(sanitized);
+        return new ApiResult(0, successMessage, sanitized);
       }),
     );
   }
 }
 
-export function RawResponse() {
-  return (
+export function RawResponse(): MethodDecorator & ClassDecorator {
+  return ((
     target: object,
     propertyKey?: string | symbol,
     descriptor?: PropertyDescriptor,
@@ -62,6 +66,5 @@ export function RawResponse() {
       return descriptor;
     }
     Reflect.defineMetadata(RAW_RESPONSE_KEY, true, target);
-    return target;
-  };
+  }) as MethodDecorator & ClassDecorator;
 }

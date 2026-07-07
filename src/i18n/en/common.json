@@ -1,0 +1,5 @@
+{
+  "SUCCESS": "Success",
+  "INTERNAL_ERROR": "Internal server error",
+  "BAD_REQUEST": "Bad request"
+}

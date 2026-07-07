@@ -6,6 +6,12 @@
     "deleteOutDir": true,
     "builder": "swc",
     "typeCheck": false,
+    "assets": [
+      {
+        "include": "i18n/**/*",
+        "watchAssets": true
+      }
+    ],
     "swc": {
       "resolveFullPaths": true
     }

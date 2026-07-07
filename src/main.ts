@@ -1,5 +1,5 @@
 import { Reflector } from '@nestjs/core';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import {
@@ -8,6 +8,7 @@ import {
 } from '@nestjs/platform-fastify';
 import { WinstonModule } from 'nest-winston';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { I18nService } from 'nestjs-i18n';
 import fastifyMultipart from '@fastify/multipart';
 
 import { AppModule } from './app.module';
@@ -33,7 +34,7 @@ async function bootstrap() {
 
   const logger = getWinstonInstance().child({ context: 'Bootstrap' });
 
-  // WebSocket Redis 适配器（用于多实例水平扩展）
+  // WebSocket Redis 适配器
   try {
     const redisService = app.get(RedisService);
     const redisIoAdapter = new RedisIoAdapter(app);
@@ -57,16 +58,11 @@ async function bootstrap() {
 
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
+  // DTO 校验 pipe 通过 APP_PIPE 在 app.module.ts 中注册（走 DI）
 
+  const i18nService = app.get(I18nService);
   const reflector = app.get(Reflector);
-  app.useGlobalInterceptors(new TransformInterceptor(reflector));
+  app.useGlobalInterceptors(new TransformInterceptor(reflector, i18nService));
 
   const swaggerConfig = configService.get('swagger', { infer: true });
   if (swaggerConfig?.enable) {

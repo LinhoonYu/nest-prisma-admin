@@ -28,7 +28,7 @@ export class PasswordService {
       where: { userId },
     });
     if (!credential) {
-      throw new ApiException(ApiCode.AccountNotFound, '账号不存在');
+      throw new ApiException(ApiCode.AccountNotFound);
     }
     return credential;
   }

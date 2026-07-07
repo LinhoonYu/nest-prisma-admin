@@ -63,28 +63,19 @@ export class TokenService {
     );
 
     if (!oldData) {
-      throw new ApiException(
-        ApiCode.RefreshTokenInvalid,
-        '刷新令牌无效或已过期',
-      );
+      throw new ApiException(ApiCode.RefreshTokenInvalid);
     }
 
     // 已轮换的 token 再次被使用，说明可能被盗
     if (oldData.status === 'revoked') {
       await this.sessionService.revoke(oldData.sessionId);
-      throw new ApiException(
-        ApiCode.RefreshTokenReuseDetected,
-        '检测到刷新令牌复用，请重新登录',
-      );
+      throw new ApiException(ApiCode.RefreshTokenReuseDetected);
     }
 
     // session 已被撤销（登出/踢下线），拒绝刷新
     const sessionActive = await this.sessionService.isActive(oldData.sessionId);
     if (!sessionActive) {
-      throw new ApiException(
-        ApiCode.RefreshTokenInvalid,
-        '刷新令牌无效或已过期',
-      );
+      throw new ApiException(ApiCode.RefreshTokenInvalid);
     }
 
     const ttl = parseDuration(this.securityConfig.refresh.expiresIn);

@@ -38,7 +38,7 @@ export class DeptService {
 
   async detail(id: bigint) {
     const dept = await this.prisma.dept.findUnique({ where: { id } });
-    if (!dept) throw new ApiException(ApiCode.DeptNotFound, '部门不存在');
+    if (!dept) throw new ApiException(ApiCode.DeptNotFound);
     return dept;
   }
 
@@ -47,14 +47,14 @@ export class DeptService {
       const parent = await this.prisma.dept.findUnique({
         where: { id: dto.parentId },
       });
-      if (!parent) throw new ApiException(ApiCode.DeptNotFound, '父部门不存在');
+      if (!parent) throw new ApiException(ApiCode.DeptNotFound);
     }
 
     const exists = await this.prisma.dept.findFirst({
       where: { code: dto.code },
       select: { id: true },
     });
-    if (exists) throw new ApiException(ApiCode.BadRequest, '部门编码已存在');
+    if (exists) throw new ApiException(ApiCode.BadRequest);
 
     const result = await this.prisma.dept.create({
       data: { ...dto, createdBy: operatorId, updatedBy: operatorId },
@@ -66,7 +66,7 @@ export class DeptService {
 
   async update(id: bigint, dto: UpdateDeptDto, operatorId: bigint) {
     const dept = await this.prisma.dept.findUnique({ where: { id } });
-    if (!dept) throw new ApiException(ApiCode.DeptNotFound, '部门不存在');
+    if (!dept) throw new ApiException(ApiCode.DeptNotFound);
 
     // parentId 变更：null=清空父级，bigint=设新父级
     if (dto.parentId !== undefined && dto.parentId !== dept.parentId) {
@@ -74,13 +74,12 @@ export class DeptService {
         // 清空父级，无需额外校验
       } else {
         if (dto.parentId === id) {
-          throw new ApiException(ApiCode.BadRequest, '不能将自身设为父部门');
+          throw new ApiException(ApiCode.BadRequest);
         }
         const parent = await this.prisma.dept.findUnique({
           where: { id: dto.parentId },
         });
-        if (!parent)
-          throw new ApiException(ApiCode.DeptNotFound, '父部门不存在');
+        if (!parent) throw new ApiException(ApiCode.DeptNotFound);
         // 递归检查祖先，防止形成循环引用
         await this.assertNoCycle(id, dto.parentId);
       }
@@ -91,7 +90,7 @@ export class DeptService {
         where: { code: dto.code, NOT: { id } },
         select: { id: true },
       });
-      if (exists) throw new ApiException(ApiCode.BadRequest, '部门编码已存在');
+      if (exists) throw new ApiException(ApiCode.BadRequest);
     }
 
     const result = await this.prisma.dept.update({
@@ -105,18 +104,18 @@ export class DeptService {
 
   async remove(id: bigint, operatorId: bigint) {
     const dept = await this.prisma.dept.findUnique({ where: { id } });
-    if (!dept) throw new ApiException(ApiCode.DeptNotFound, '部门不存在');
+    if (!dept) throw new ApiException(ApiCode.DeptNotFound);
 
     const childCount = await this.prisma.dept.count({
       where: { parentId: id },
     });
     if (childCount > 0) {
-      throw new ApiException(ApiCode.BadRequest, '存在子部门，无法删除');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     const userCount = await this.prisma.user.count({ where: { deptId: id } });
     if (userCount > 0) {
-      throw new ApiException(ApiCode.BadRequest, '部门下存在用户，无法删除');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     await this.prisma.$transaction([
@@ -143,10 +142,7 @@ export class DeptService {
     const visited = new Set<bigint>();
     while (currentId !== null) {
       if (currentId === id) {
-        throw new ApiException(
-          ApiCode.BadRequest,
-          '不能将该部门设为子级，会形成循环引用',
-        );
+        throw new ApiException(ApiCode.BadRequest);
       }
       if (visited.has(currentId)) break; // 防御已存在的环
       visited.add(currentId);

@@ -1,0 +1,61 @@
+{
+  "UNAUTHORIZED": "Unauthorized",
+  "FORBIDDEN": "Forbidden",
+  "NOT_FOUND": "Not found",
+  "TOO_MANY_REQUESTS": "Too many requests",
+
+  "ACCOUNT_DISABLED": "Account disabled",
+  "ACCOUNT_EXPIRED": "Account expired",
+  "ACCOUNT_NOT_FOUND": "Account not found",
+  "PASSWORD_ERROR": "Invalid password",
+  "CAPTCHA_ERROR": "Invalid or expired captcha",
+  "TOKEN_EXPIRED": "Token has expired",
+  "TOKEN_INVALID": "Invalid or expired token",
+  "TOKEN_MISSING": "Please log in first",
+  "ACCOUNT_OR_PASSWORD_ERROR": "Invalid username or password",
+  "DUPLICATE_USERNAME": "Username already exists",
+  "DUPLICATE_EMAIL": "Email already exists",
+  "ACCOUNT_LOCKED": "Account locked, please retry in {minutes} minutes",
+  "BAD_REQUEST": "Bad request",
+  "SYSTEM_DATA_CODE_IMMUTABLE": "System data cannot be modified",
+
+  "NO_PERMISSION": "Permission denied",
+  "ROLE_NOT_FOUND": "Role not found",
+  "MENU_NOT_FOUND": "Menu not found",
+  "DEPT_NOT_FOUND": "Department not found",
+  "DICT_NOT_FOUND": "Dictionary not found",
+  "PERMISSION_NOT_FOUND": "Permission not found",
+  "USER_NOT_FOUND": "User not found",
+
+  "SESSION_EXPIRED": "Session has expired",
+  "SESSION_REVOKED": "Session has been revoked",
+  "REFRESH_TOKEN_REUSE_DETECTED": "Refresh token reuse detected, please log in again",
+  "REFRESH_TOKEN_INVALID": "Refresh token invalid or expired",
+  "MUST_CHANGE_PASSWORD": "Please change your password first",
+
+  "RSA_DISABLED": "RSA encryption is not enabled",
+  "RSA_PUBLIC_KEY_UNAVAILABLE": "RSA public key unavailable",
+  "RSA_DECRYPT_FAILED": "Password decryption failed, please retry with a fresh public key",
+
+  "FILE_NOT_FOUND": "File not found",
+  "FILE_TOO_LARGE": "File too large",
+
+  "NOTICE_NOT_FOUND": "Notice not found",
+  "NOTICE_ALREADY_PUBLISHED": "Notice already published",
+  "NOTICE_NOT_PUBLISHED": "Only published notices can be revoked",
+
+  "CONFIG_NOT_FOUND": "Configuration not found",
+  "DUPLICATE_CONFIG_KEY": "Config key already exists",
+  "SYSTEM_CONFIG_CANNOT_MODIFY": "System configuration cannot be modified",
+
+  "OAUTH_PROVIDER_DISABLED": "OAuth provider is not enabled",
+  "OAUTH_PROVIDER_NOT_FOUND": "Unsupported login provider: {provider}",
+  "OAUTH_STATE_INVALID": "Invalid OAuth state",
+  "OAUTH_CODE_EXCHANGE_FAILED": "OAuth code exchange failed",
+  "OAUTH_USER_INFO_FAILED": "Failed to get OAuth user info",
+  "OAUTH_EXCHANGE_CODE_INVALID": "Exchange code invalid or expired",
+  "OAUTH_IDENTITY_ALREADY_BOUND": "This third-party account is already bound to another user",
+  "OAUTH_PROVIDER_ALREADY_LINKED": "This account has already linked this login method",
+  "OAUTH_CANNOT_UNBIND_LAST_IDENTITY": "Cannot unbind the last login method",
+  "OAUTH_PENDING_INVALID": "Authorization expired, please log in again"
+}

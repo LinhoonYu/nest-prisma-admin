@@ -67,7 +67,7 @@ export class MenuService {
 
   async detail(id: bigint) {
     const menu = await this.prisma.menu.findUnique({ where: { id } });
-    if (!menu) throw new ApiException(ApiCode.MenuNotFound, '菜单不存在');
+    if (!menu) throw new ApiException(ApiCode.MenuNotFound);
     return menu;
   }
 
@@ -76,14 +76,14 @@ export class MenuService {
       const parent = await this.prisma.menu.findUnique({
         where: { id: dto.parentId },
       });
-      if (!parent) throw new ApiException(ApiCode.MenuNotFound, '父菜单不存在');
+      if (!parent) throw new ApiException(ApiCode.MenuNotFound);
     }
 
     const exists = await this.prisma.menu.findFirst({
       where: { name: dto.name },
       select: { id: true },
     });
-    if (exists) throw new ApiException(ApiCode.BadRequest, '路由名称已存在');
+    if (exists) throw new ApiException(ApiCode.BadRequest);
 
     return this.prisma.menu.create({
       data: { ...dto, createdBy: operatorId, updatedBy: operatorId },
@@ -92,7 +92,7 @@ export class MenuService {
 
   async update(id: bigint, dto: UpdateMenuDto, operatorId: bigint) {
     const menu = await this.prisma.menu.findUnique({ where: { id } });
-    if (!menu) throw new ApiException(ApiCode.MenuNotFound, '菜单不存在');
+    if (!menu) throw new ApiException(ApiCode.MenuNotFound);
 
     // parentId 变更：null=清空父级，bigint=设新父级
     if (dto.parentId !== undefined && dto.parentId !== menu.parentId) {
@@ -100,13 +100,12 @@ export class MenuService {
         // 清空父级，无需额外校验
       } else {
         if (dto.parentId === id) {
-          throw new ApiException(ApiCode.BadRequest, '不能将自身设为父菜单');
+          throw new ApiException(ApiCode.BadRequest);
         }
         const parent = await this.prisma.menu.findUnique({
           where: { id: dto.parentId },
         });
-        if (!parent)
-          throw new ApiException(ApiCode.MenuNotFound, '父菜单不存在');
+        if (!parent) throw new ApiException(ApiCode.MenuNotFound);
         // 递归检查祖先，防止形成循环引用
         await this.assertNoCycle(id, dto.parentId);
       }
@@ -117,7 +116,7 @@ export class MenuService {
         where: { name: dto.name, NOT: { id } },
         select: { id: true },
       });
-      if (exists) throw new ApiException(ApiCode.BadRequest, '路由名称已存在');
+      if (exists) throw new ApiException(ApiCode.BadRequest);
     }
 
     return this.prisma.menu.update({
@@ -128,13 +127,13 @@ export class MenuService {
 
   async remove(id: bigint, operatorId: bigint) {
     const menu = await this.prisma.menu.findUnique({ where: { id } });
-    if (!menu) throw new ApiException(ApiCode.MenuNotFound, '菜单不存在');
+    if (!menu) throw new ApiException(ApiCode.MenuNotFound);
 
     const childCount = await this.prisma.menu.count({
       where: { parentId: id },
     });
     if (childCount > 0) {
-      throw new ApiException(ApiCode.BadRequest, '存在子菜单，无法删除');
+      throw new ApiException(ApiCode.BadRequest);
     }
 
     await this.prisma.$transaction([
@@ -160,10 +159,7 @@ export class MenuService {
     const visited = new Set<bigint>();
     while (currentId !== null) {
       if (currentId === id) {
-        throw new ApiException(
-          ApiCode.BadRequest,
-          '不能将该菜单设为子级，会形成循环引用',
-        );
+        throw new ApiException(ApiCode.BadRequest);
       }
       if (visited.has(currentId)) break; // 防御已存在的环
       visited.add(currentId);

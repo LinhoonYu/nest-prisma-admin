@@ -43,6 +43,10 @@
   "NOTICE_NOT_FOUND": "Notice not found",
   "NOTICE_ALREADY_PUBLISHED": "Notice already published",
   "NOTICE_NOT_PUBLISHED": "Only published notices can be revoked",
+  "NOTICE_SEND_TIME_REQUIRED": "Scheduled send requires a send time",
+  "NOTICE_SEND_TIME_PAST": "Send time cannot be in the past",
+  "NOTICE_MQ_UNAVAILABLE": "Message queue unavailable, please retry later",
+  "NOTICE_NOT_FAILED": "Only failed notices can be retried",
 
   "CONFIG_NOT_FOUND": "Configuration not found",
   "DUPLICATE_CONFIG_KEY": "Config key already exists",

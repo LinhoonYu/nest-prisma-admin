@@ -3,7 +3,12 @@ import { RabbitMQModule } from '@golevelup/nestjs-rabbitmq';
 
 import { IRabbitmqConfig, RabbitmqConfig } from '~/config';
 
-import { EXCHANGE_LOG, EXCHANGE_LOG_DLX } from './rabbitmq.constants';
+import {
+  EXCHANGE_LOG,
+  EXCHANGE_LOG_DLX,
+  EXCHANGE_NOTICE,
+  EXCHANGE_NOTICE_DLX,
+} from './rabbitmq.constants';
 
 @Global()
 @Module({
@@ -21,6 +26,19 @@ import { EXCHANGE_LOG, EXCHANGE_LOG_DLX } from './rabbitmq.constants';
           },
           {
             name: EXCHANGE_LOG_DLX,
+            type: 'direct',
+            durable: true,
+          },
+          {
+            name: EXCHANGE_NOTICE,
+            type: 'x-delayed-message',
+            options: {
+              durable: true,
+              arguments: { 'x-delayed-type': 'direct' },
+            },
+          },
+          {
+            name: EXCHANGE_NOTICE_DLX,
             type: 'direct',
             durable: true,
           },

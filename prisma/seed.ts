@@ -574,6 +574,14 @@ const permissions: PermSeed[] = [
     path: '/api/v1/notices/:id/revoke',
     sort: 86,
   },
+  {
+    code: 'sys:notice:retry',
+    name: '重试发送通知',
+    group: '通知管理',
+    method: 'PUT',
+    path: '/api/v1/notices/:id/retry',
+    sort: 87,
+  },
 
   // 登录日志
   {

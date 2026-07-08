@@ -3,6 +3,7 @@ import { Prisma } from '~/generated/prisma/client';
 
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
+import { AppLogger } from '~/common/logger/app-logger';
 import { WsGateway } from '~/modules/ws/ws.gateway';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 
@@ -11,24 +12,28 @@ import {
   NoticeQueryDto,
   UpdateNoticeDto,
 } from './dto/notice.dto';
+import { NoticeProducer } from './notice.producer';
 
 @Injectable()
 export class NoticeService {
   constructor(
     private prisma: PrismaService,
     private wsGateway: WsGateway,
-  ) {}
-
-  /* ========== 管理端 ========== */
+    private producer: NoticeProducer,
+    private readonly logger: AppLogger,
+  ) {
+    this.logger.setContext(NoticeService.name);
+  }
 
   async list(query: NoticeQueryDto) {
-    const { page, pageSize, title, publishStatus } = query;
+    const { page, pageSize, title, publishStatus, sendStatus } = query;
     const where = {
       deletedAt: null,
       ...(title && {
         title: { contains: title, mode: 'insensitive' as const },
       }),
       ...(publishStatus !== undefined && { publishStatus }),
+      ...(sendStatus !== undefined && { sendStatus }),
     };
 
     const [items, total] = await Promise.all([
@@ -61,6 +66,9 @@ export class NoticeService {
     ) {
       throw new ApiException(ApiCode.BadRequest);
     }
+    if (dto.sendMode === 2 && !dto.sendTime) {
+      throw new ApiException(ApiCode.NoticeSendTimeRequired);
+    }
 
     return this.prisma.notice.create({
       data: {
@@ -70,6 +78,9 @@ export class NoticeService {
         level: dto.level,
         targetType: dto.targetType,
         targetUserIds: dto.targetUserIds ?? Prisma.JsonNull,
+        sendMode: dto.sendMode,
+        ...(dto.sendTime && { sendTime: new Date(dto.sendTime) }),
+        ...(dto.expireDays !== undefined && { expireDays: dto.expireDays }),
         createdBy: operatorId,
         updatedBy: operatorId,
       },
@@ -81,7 +92,8 @@ export class NoticeService {
     if (!notice || notice.deletedAt) {
       throw new ApiException(ApiCode.NoticeNotFound);
     }
-    if (notice.publishStatus === 1) {
+    // 已发布(1) 或 定时发布中(2) 不可编辑
+    if (notice.publishStatus === 1 || notice.publishStatus === 2) {
       throw new ApiException(ApiCode.BadRequest);
     }
 
@@ -91,6 +103,13 @@ export class NoticeService {
       dto.targetUserIds.length === 0
     ) {
       throw new ApiException(ApiCode.BadRequest);
+    }
+
+    const effectiveSendMode = dto.sendMode ?? notice.sendMode;
+    const effectiveSendTime =
+      dto.sendTime !== undefined ? new Date(dto.sendTime) : notice.sendTime;
+    if (effectiveSendMode === 2 && !effectiveSendTime) {
+      throw new ApiException(ApiCode.NoticeSendTimeRequired);
     }
 
     return this.prisma.notice.update({
@@ -104,6 +123,9 @@ export class NoticeService {
         ...(dto.targetUserIds !== undefined && {
           targetUserIds: dto.targetUserIds,
         }),
+        ...(dto.sendMode !== undefined && { sendMode: dto.sendMode }),
+        ...(dto.sendTime !== undefined && { sendTime: new Date(dto.sendTime) }),
+        ...(dto.expireDays !== undefined && { expireDays: dto.expireDays }),
         updatedBy: operatorId,
       },
     });
@@ -114,7 +136,8 @@ export class NoticeService {
     if (!notice || notice.deletedAt) {
       throw new ApiException(ApiCode.NoticeNotFound);
     }
-    if (notice.publishStatus === 1) {
+    // 已发布(1) 或 定时发布中(2) 不可删除
+    if (notice.publishStatus === 1 || notice.publishStatus === 2) {
       throw new ApiException(ApiCode.BadRequest);
     }
 
@@ -129,8 +152,10 @@ export class NoticeService {
       where: { id: { in: ids }, deletedAt: null },
     });
 
-    const published = notices.filter((n) => n.publishStatus === 1);
-    if (published.length > 0) {
+    const blocked = notices.filter(
+      (n) => n.publishStatus === 1 || n.publishStatus === 2,
+    );
+    if (blocked.length > 0) {
       throw new ApiException(ApiCode.BadRequest);
     }
 
@@ -149,22 +174,63 @@ export class NoticeService {
     if (notice.publishStatus === 1) {
       throw new ApiException(ApiCode.NoticeAlreadyPublished);
     }
+    if (notice.publishStatus === 2) {
+      throw new ApiException(ApiCode.BadRequest);
+    }
     if (notice.publishStatus === -1) {
       throw new ApiException(ApiCode.BadRequest);
     }
 
+    if (notice.sendMode === 2) {
+      if (!notice.sendTime) {
+        throw new ApiException(ApiCode.NoticeSendTimeRequired);
+      }
+      if (notice.sendTime <= new Date()) {
+        throw new ApiException(ApiCode.NoticeSendTimePast);
+      }
+    }
+
+    const isScheduled = notice.sendMode === 2;
     const updated = await this.prisma.notice.update({
       where: { id },
       data: {
-        publishStatus: 1,
-        publishTime: new Date(),
+        // 定时通知进入「定时发布中」状态，到时间后由 consumer 设为已发布
+        publishStatus: isScheduled ? 2 : 1,
+        ...(isScheduled ? {} : { publishTime: new Date() }),
         publisherId: operatorId,
         updatedBy: operatorId,
+        sendStatus: 0,
       },
     });
 
-    this.pushNotice(updated);
-    return updated;
+    const delayMs = isScheduled
+      ? Math.max(0, notice.sendTime!.getTime() - Date.now())
+      : 0;
+
+    try {
+      await this.producer.send(
+        { noticeId: id.toString(), retryCount: 0 },
+        delayMs,
+      );
+      return updated;
+    } catch (e) {
+      if (notice.sendMode === 1) {
+        this.logger.warn(
+          `MQ unavailable, fallback to direct push: ${(e as Error).message}`,
+        );
+        this.pushNotice(updated);
+        return this.prisma.notice.update({
+          where: { id },
+          data: { sendStatus: 2 },
+        });
+      }
+
+      await this.prisma.notice.update({
+        where: { id },
+        data: { sendStatus: -1 },
+      });
+      throw new ApiException(ApiCode.NoticeMqUnavailable);
+    }
   }
 
   async revoke(id: bigint, operatorId: bigint) {
@@ -172,7 +238,8 @@ export class NoticeService {
     if (!notice || notice.deletedAt) {
       throw new ApiException(ApiCode.NoticeNotFound);
     }
-    if (notice.publishStatus !== 1) {
+    // 已发布(1) 或 定时发布中(2) 均可撤回
+    if (notice.publishStatus !== 1 && notice.publishStatus !== 2) {
       throw new ApiException(ApiCode.NoticeNotPublished);
     }
 
@@ -185,11 +252,49 @@ export class NoticeService {
       },
     });
 
-    this.pushRevoke(updated);
+    // 仅已发布的通知需要通知用户撤回，定时发布中的通知用户尚未收到
+    if (notice.publishStatus === 1) {
+      this.pushRevoke(updated);
+    }
     return updated;
   }
 
-  /* ========== WebSocket 推送 ========== */
+  async retry(id: bigint) {
+    const notice = await this.prisma.notice.findUnique({ where: { id } });
+    if (!notice || notice.deletedAt) {
+      throw new ApiException(ApiCode.NoticeNotFound);
+    }
+    // 已发布(1) 或 定时发布中(2) 均可重试
+    if (notice.publishStatus !== 1 && notice.publishStatus !== 2) {
+      throw new ApiException(ApiCode.NoticeNotPublished);
+    }
+    if (notice.sendStatus !== -1) {
+      throw new ApiException(ApiCode.NoticeNotFailed);
+    }
+
+    await this.prisma.notice.update({
+      where: { id },
+      data: { sendStatus: 0 },
+    });
+
+    const delayMs =
+      notice.sendMode === 2 && notice.sendTime
+        ? Math.max(0, notice.sendTime.getTime() - Date.now())
+        : 0;
+
+    try {
+      await this.producer.send(
+        { noticeId: id.toString(), retryCount: 0 },
+        delayMs,
+      );
+    } catch {
+      await this.prisma.notice.update({
+        where: { id },
+        data: { sendStatus: -1 },
+      });
+      throw new ApiException(ApiCode.NoticeMqUnavailable);
+    }
+  }
 
   private pushNotice(notice: {
     id: bigint;

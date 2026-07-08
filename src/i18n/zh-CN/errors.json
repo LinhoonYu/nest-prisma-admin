@@ -43,6 +43,10 @@
   "NOTICE_NOT_FOUND": "通知不存在",
   "NOTICE_ALREADY_PUBLISHED": "通知已发布",
   "NOTICE_NOT_PUBLISHED": "仅已发布通知可撤回",
+  "NOTICE_SEND_TIME_REQUIRED": "定时发送必须指定发送时间",
+  "NOTICE_SEND_TIME_PAST": "发送时间不能早于当前时间",
+  "NOTICE_MQ_UNAVAILABLE": "消息队列不可用，请稍后重试",
+  "NOTICE_NOT_FAILED": "仅发送失败的通知可重试",
 
   "CONFIG_NOT_FOUND": "配置不存在",
   "DUPLICATE_CONFIG_KEY": "配置键已存在",

@@ -82,4 +82,11 @@ export class NoticeController {
   revoke(@Param() { id }: IdParam, @CurrentUser('userId') userId: string) {
     return this.noticeService.revoke(BigInt(id), BigInt(userId));
   }
+
+  @Put(':id/retry')
+  @ApiOperation({ summary: '重试发送失败的通知' })
+  @Perm(noticePermissions.RETRY)
+  retry(@Param() { id }: IdParam) {
+    return this.noticeService.retry(BigInt(id));
+  }
 }

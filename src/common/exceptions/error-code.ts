@@ -52,6 +52,10 @@ export enum ApiCode {
   NoticeNotFound = 6001,
   NoticeAlreadyPublished = 6002,
   NoticeNotPublished = 6003,
+  NoticeSendTimeRequired = 6004,
+  NoticeSendTimePast = 6005,
+  NoticeMqUnavailable = 6006,
+  NoticeNotFailed = 6007,
 
   // 系统配置相关 7xxx
   ConfigNotFound = 7001,

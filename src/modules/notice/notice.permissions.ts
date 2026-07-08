@@ -6,4 +6,5 @@ export const noticePermissions = {
   DELETE: 'sys:notice:delete',
   PUBLISH: 'sys:notice:publish',
   REVOKE: 'sys:notice:revoke',
+  RETRY: 'sys:notice:retry',
 } as const;

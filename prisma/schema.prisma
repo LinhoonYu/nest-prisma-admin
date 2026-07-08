@@ -445,6 +445,10 @@ model Notice {
   publisherId   BigInt?   @map("publisher_id")
   publishTime   DateTime? @map("publish_time") @db.Timestamptz(3)
   revokeTime    DateTime? @map("revoke_time") @db.Timestamptz(3)
+  sendMode      Int       @default(1) @map("send_mode") @db.SmallInt
+  sendTime      DateTime? @map("send_time") @db.Timestamptz(3)
+  expireDays    Int?      @map("expire_days")
+  sendStatus    Int       @default(0) @map("send_status") @db.SmallInt
   createdBy     BigInt?   @map("created_by")
   updatedBy     BigInt?   @map("updated_by")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -454,6 +458,7 @@ model Notice {
   readRecords NoticeReadRecord[]
 
   @@index([publishStatus, publishTime])
+  @@index([sendMode, sendStatus, sendTime])
   @@index([createdAt])
   @@map("notices")
 }

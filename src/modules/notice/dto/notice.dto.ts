@@ -3,6 +3,8 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsDateString,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -20,13 +22,22 @@ export class NoticeQueryDto extends PagerDto {
   title?: string;
 
   @ApiProperty({
-    description: '发布状态：0=草稿 1=已发布 -1=已撤回',
+    description: '发布状态：0=草稿 1=已发布 2=定时发布中 -1=已撤回',
     required: false,
   })
   @Type(() => Number)
   @IsOptional()
   @IsInt()
   publishStatus?: number;
+
+  @ApiProperty({
+    description: '发送状态：0=待发送 2=已完成 -1=失败 -2=已过期',
+    required: false,
+  })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  sendStatus?: number;
 }
 
 export class CreateNoticeDto {
@@ -65,6 +76,24 @@ export class CreateNoticeDto {
   @ArrayMinSize(1)
   @Type(() => Number)
   targetUserIds?: number[];
+
+  @ApiProperty({ description: '发送模式：1=即时 2=定时', default: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @IsIn([1, 2])
+  sendMode: number = 1;
+
+  @ApiProperty({ description: '定时发送时间（ISO 8601）', required: false })
+  @IsOptional()
+  @IsDateString()
+  sendTime?: string;
+
+  @ApiProperty({ description: '有效天数，过期后不再推送', required: false })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  expireDays?: number;
 }
 
 export class UpdateNoticeDto extends PartialType(CreateNoticeDto) {}

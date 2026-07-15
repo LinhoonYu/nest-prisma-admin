@@ -23,6 +23,7 @@ import {
   SwaggerConfig,
 } from '~/config';
 import { getWinstonInstance } from '~/config/winston.config';
+import { BootstrapModule } from '~/global/bootstrap/bootstrap.module';
 import { HealthModule } from '~/global/health/health.module';
 import { AuthModule } from '~/modules/auth/auth.module';
 import { ConfigModule } from '~/modules/config/config.module';
@@ -69,6 +70,7 @@ import { AppLogger } from '~/common/logger/app-logger';
     RedisModule,
     S3Module,
     HealthModule,
+    BootstrapModule,
     AuthModule,
     IamModule,
     DictModule,

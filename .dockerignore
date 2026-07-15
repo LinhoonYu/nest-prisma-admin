@@ -1,33 +1,13 @@
-# 依赖与构建产物（builder 阶段会重新生成，避免污染）
 node_modules
 dist
-coverage
-
-# Git 与编辑器
 .git
 .gitignore
+logs
+.env.local
+coverage
+.pnpm-store
 .husky
-.vscode
-.idea
-*.swp
-.DS_Store
-
-# 日志与环境变量（敏感信息不应进镜像）
-*.log
-.env
-.env.*
-!.env.example
-
-# Docker 自身
-Dockerfile
-.dockerignore
-docker-compose*.yml
-
-# 测试与文档（运行时不需要）
-test
-docs
 README.md
 *.md
-
-# Prisma 生成产物（builder 阶段会重新生成）
-src/generated
+.vscode
+.idea

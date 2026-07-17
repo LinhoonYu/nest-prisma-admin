@@ -40,24 +40,17 @@ export class GiteeProvider implements OAuthProviderStrategy {
   }
 
   async exchangeCodeForUser(code: string): Promise<NormalizedOAuthUser> {
-    const tokenData = await postJson<GiteeTokenResponse>(
-      TOKEN_URL,
-      {
-        code,
-        client_id: this.config.clientId,
-        client_secret: this.config.clientSecret,
-        redirect_uri: this.config.redirectUri,
-        grant_type: 'authorization_code',
-      },
-      undefined,
-      { skipProxy: true },
-    );
+    const tokenData = await postJson<GiteeTokenResponse>(TOKEN_URL, {
+      code,
+      client_id: this.config.clientId,
+      client_secret: this.config.clientSecret,
+      redirect_uri: this.config.redirectUri,
+      grant_type: 'authorization_code',
+    });
 
     // Gitee userinfo 通过 query 参数传 access_token
     const userInfo = await getJson<GiteeUserInfo>(
       `${USER_URL}?access_token=${encodeURIComponent(tokenData.access_token)}`,
-      undefined,
-      { skipProxy: true },
     );
 
     return {

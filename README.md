@@ -2,6 +2,9 @@
 
 基于 NestJS + Prisma + PostgreSQL 构建的企业级后台管理系统。
 
+> **在线演示**：https://npa.ylhcode.top  
+> 账号：`demo` / 密码：`123456`
+
 集成 RBAC 权限、WebSocket 实时通知、RabbitMQ 消息队列、OAuth 第三方登录等能力，提供完整的中后台管理解决方案。
 
 - 前端项目地址：[nest-prisma-admin-web](https://github.com/LinhoonYu/nest-prisma-admin-web)

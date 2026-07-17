@@ -94,6 +94,9 @@ export class UserService {
         userRoles: {
           select: { roleId: true },
         },
+        dataScopeDepts: {
+          select: { deptId: true },
+        },
         avatarFile: {
           select: { id: true, originalName: true, mimeType: true },
         },
@@ -101,10 +104,11 @@ export class UserService {
     });
     if (!user) throw new ApiException(ApiCode.UserNotFound);
 
-    const { userRoles, ...rest } = user;
+    const { userRoles, dataScopeDepts, ...rest } = user;
     return {
       ...rest,
       roleIds: userRoles.map((ur) => ur.roleId),
+      dataScopeDeptIds: dataScopeDepts.map((d) => d.deptId),
     };
   }
 

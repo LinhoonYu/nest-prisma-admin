@@ -18,6 +18,7 @@
   "ACCOUNT_LOCKED": "账号已锁定，请 {minutes} 分钟后重试",
   "BAD_REQUEST": "请求参数错误",
   "SYSTEM_DATA_CODE_IMMUTABLE": "系统数据不可修改",
+  "PROTECTED_USER": "该演示账号受保护，不可修改",
 
   "NO_PERMISSION": "权限不足",
   "ROLE_NOT_FOUND": "角色不存在",

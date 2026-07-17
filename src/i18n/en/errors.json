@@ -18,6 +18,7 @@
   "ACCOUNT_LOCKED": "Account locked, please retry in {minutes} minutes",
   "BAD_REQUEST": "Bad request",
   "SYSTEM_DATA_CODE_IMMUTABLE": "System data cannot be modified",
+  "PROTECTED_USER": "This demo account is protected and cannot be modified",
 
   "NO_PERMISSION": "Permission denied",
   "ROLE_NOT_FOUND": "Role not found",

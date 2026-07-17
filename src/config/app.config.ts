@@ -11,6 +11,8 @@ export const AppConfig = registerAs(appRegToken, () => ({
   port: envNumber('APP_PORT', 3000),
   globalPrefix,
   multiDeviceLogin: envBoolean('MULTI_DEVICE_LOGIN', true),
+  /** 受保护的演示账号用户名，该账号不可修改密码、删除、修改角色等 */
+  demoUsername: env('DEMO_USERNAME', ''),
 }));
 
 export type IAppConfig = ConfigType<typeof AppConfig>;

@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 
 import { ApiException } from '~/common/exceptions/api.exception';
 import { ApiCode } from '~/common/exceptions/error-code';
+import { AppConfig, IAppConfig } from '~/config';
 import { DataScopeService } from '~/modules/auth/data-scope.service';
 import { PasswordService } from '~/modules/auth/password.service';
 import { UserContextService } from '~/modules/auth/user-context.service';
@@ -23,7 +24,16 @@ export class UserService {
     private passwordService: PasswordService,
     private userContextService: UserContextService,
     private dataScopeService: DataScopeService,
+    @Inject(AppConfig.KEY) private appConfig: IAppConfig,
   ) {}
+
+  /** 受保护的演示账号禁止修改密码、删除、修改角色等操作 */
+  private assertNotProtected(username: string): void {
+    const protectedUsername = this.appConfig.demoUsername;
+    if (protectedUsername && username === protectedUsername) {
+      throw new ApiException(ApiCode.ProtectedUser);
+    }
+  }
 
   async list(query: UserQueryDto, currentUserId: string) {
     const { page, pageSize, username, nickname, deptId, status } = query;
@@ -162,6 +172,7 @@ export class UserService {
   async update(id: bigint, dto: UpdateUserDto, operatorId: bigint) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new ApiException(ApiCode.UserNotFound);
+    this.assertNotProtected(user.username);
 
     if (dto.email && dto.email !== user.email) {
       const emailExists = await this.prisma.user.findFirst({
@@ -201,6 +212,7 @@ export class UserService {
   async remove(id: bigint, operatorId: bigint) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new ApiException(ApiCode.UserNotFound);
+    this.assertNotProtected(user.username);
     if (user.isSuperAdmin) {
       throw new ApiException(ApiCode.BadRequest);
     }
@@ -223,6 +235,7 @@ export class UserService {
   async assignRoles(id: bigint, dto: AssignRolesDto, operatorId: bigint) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new ApiException(ApiCode.UserNotFound);
+    this.assertNotProtected(user.username);
 
     const roleIds = dto.roleIds.map((rid) => BigInt(rid));
 
@@ -260,6 +273,7 @@ export class UserService {
   ) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new ApiException(ApiCode.UserNotFound);
+    this.assertNotProtected(user.username);
 
     const deptIds = (dto.deptIds ?? []).map((did) => BigInt(did));
 
@@ -292,6 +306,7 @@ export class UserService {
   async resetPassword(id: bigint, dto: ResetPasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new ApiException(ApiCode.UserNotFound);
+    this.assertNotProtected(user.username);
 
     const passwordHash = await this.passwordService.hash(dto.password);
 

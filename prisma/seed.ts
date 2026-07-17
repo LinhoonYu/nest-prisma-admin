@@ -747,6 +747,7 @@ async function createMenus(
       icon: item.icon ?? null,
       sort: item.sort,
       status: 1,
+      isSystem: true,
     };
 
     const menu = await tx.menu.upsert({

@@ -193,6 +193,7 @@ model Menu {
   externalUrl  String?   @map("external_url") @db.VarChar(512)
   activeMenuId BigInt?   @map("active_menu_id")
   status       Int       @default(1) @db.SmallInt
+  isSystem     Boolean   @default(false) @map("is_system")
   remark       String?   @db.VarChar(512)
   createdBy    BigInt?   @map("created_by")
   updatedBy    BigInt?   @map("updated_by")

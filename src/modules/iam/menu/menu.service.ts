@@ -93,6 +93,9 @@ export class MenuService {
   async update(id: bigint, dto: UpdateMenuDto, operatorId: bigint) {
     const menu = await this.prisma.menu.findUnique({ where: { id } });
     if (!menu) throw new ApiException(ApiCode.MenuNotFound);
+    if (menu.isSystem && dto.name !== undefined && dto.name !== menu.name) {
+      throw new ApiException(ApiCode.SystemDataCodeImmutable);
+    }
 
     // parentId 变更：null=清空父级，bigint=设新父级
     if (dto.parentId !== undefined && dto.parentId !== menu.parentId) {
@@ -128,6 +131,9 @@ export class MenuService {
   async remove(id: bigint, operatorId: bigint) {
     const menu = await this.prisma.menu.findUnique({ where: { id } });
     if (!menu) throw new ApiException(ApiCode.MenuNotFound);
+    if (menu.isSystem) {
+      throw new ApiException(ApiCode.BadRequest);
+    }
 
     const childCount = await this.prisma.menu.count({
       where: { parentId: id },

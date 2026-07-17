@@ -196,6 +196,7 @@ export class BootstrapService implements OnApplicationBootstrap {
           icon: item.icon ?? null,
           sort: item.sort,
           status: 1,
+          isSystem: true,
         },
       });
 

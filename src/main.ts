@@ -21,7 +21,7 @@ import { RedisService } from '~/shared/redis/redis.service';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    new FastifyAdapter({ trustProxy: true }),
     {
       bufferLogs: true,
       logger: WinstonModule.createLogger({ instance: getWinstonInstance() }),

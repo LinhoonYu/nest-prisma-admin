@@ -88,7 +88,7 @@ export class PermissionService {
     const perm = await this.prisma.permission.findUnique({ where: { id } });
     if (!perm) throw new ApiException(ApiCode.PermissionNotFound);
     if (perm.isSystem) {
-      throw new ApiException(ApiCode.BadRequest);
+      throw new ApiException(ApiCode.SystemDataCannotDelete);
     }
 
     await this.prisma.$transaction([

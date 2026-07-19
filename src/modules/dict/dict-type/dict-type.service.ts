@@ -85,7 +85,7 @@ export class DictTypeService {
     const dictType = await this.prisma.dictType.findUnique({ where: { id } });
     if (!dictType) throw new ApiException(ApiCode.DictNotFound);
     if (dictType.isSystem) {
-      throw new ApiException(ApiCode.BadRequest);
+      throw new ApiException(ApiCode.SystemDataCannotDelete);
     }
 
     const itemCount = await this.prisma.dictItem.count({

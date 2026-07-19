@@ -154,7 +154,7 @@ export class ConfigService {
       throw new ApiException(ApiCode.ConfigNotFound);
     }
     if (config.isSystem) {
-      throw new ApiException(ApiCode.SystemConfigCannotModify);
+      throw new ApiException(ApiCode.SystemDataCannotDelete);
     }
 
     await this.prisma.config.delete({ where: { id } });

@@ -92,7 +92,7 @@ export class RoleService {
     const role = await this.prisma.role.findUnique({ where: { id } });
     if (!role) throw new ApiException(ApiCode.RoleNotFound);
     if (role.isSystem) {
-      throw new ApiException(ApiCode.BadRequest);
+      throw new ApiException(ApiCode.SystemDataCannotDelete);
     }
 
     const userCount = await this.prisma.userRole.count({

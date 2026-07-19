@@ -23,6 +23,7 @@ export enum ApiCode {
   BadRequest = 1013,
   SystemDataCodeImmutable = 1014,
   ProtectedUser = 1015,
+  SystemDataCannotDelete = 1016,
 
   // 权限相关 2xxx
   NoPermission = 2001,

@@ -132,7 +132,7 @@ export class MenuService {
     const menu = await this.prisma.menu.findUnique({ where: { id } });
     if (!menu) throw new ApiException(ApiCode.MenuNotFound);
     if (menu.isSystem) {
-      throw new ApiException(ApiCode.BadRequest);
+      throw new ApiException(ApiCode.SystemDataCannotDelete);
     }
 
     const childCount = await this.prisma.menu.count({

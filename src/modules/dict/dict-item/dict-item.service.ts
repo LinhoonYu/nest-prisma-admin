@@ -96,7 +96,7 @@ export class DictItemService {
     });
     if (!dictItem) throw new ApiException(ApiCode.DictNotFound);
     if (dictItem.dictType.isSystem) {
-      throw new ApiException(ApiCode.BadRequest);
+      throw new ApiException(ApiCode.SystemDataCannotDelete);
     }
 
     return this.prisma.dictItem.update({

@@ -1,5 +1,6 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
@@ -41,10 +42,20 @@ export class S3Service implements OnModuleInit {
       this.logger.info(
         `S3 连接正常: ${this.config.endpoint}/${this.config.bucket}`,
       );
-    } catch (err) {
-      this.logger.warn(
-        `S3 连接失败，文件上传功能不可用: ${this.config.endpoint}/${this.config.bucket} — ${(err as Error).message}`,
-      );
+    } catch (_err) {
+      // bucket 不存在时自动创建，避免部署后首次上传报 NoSuchBucket
+      try {
+        await this.client.send(
+          new CreateBucketCommand({ Bucket: this.config.bucket }),
+        );
+        this.logger.info(
+          `S3 bucket 已自动创建: ${this.config.endpoint}/${this.config.bucket}`,
+        );
+      } catch (createErr) {
+        this.logger.warn(
+          `S3 连接失败且 bucket 自动创建失败，文件上传功能不可用: ${this.config.endpoint}/${this.config.bucket} — ${(createErr as Error).message}`,
+        );
+      }
     }
   }
 

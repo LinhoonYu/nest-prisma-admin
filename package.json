@@ -1,6 +1,6 @@
 {
   "name": "nest-prisma-admin",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "A modern admin template built with NestJS, Prisma and PostgreSQL.",
   "author": "linhoonyu",
   "license": "MIT",

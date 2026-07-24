@@ -14,7 +14,7 @@ const MENU_PAGE = 2;
 
 interface MenuSeed {
   name: string;
-  title: string;
+  titles: { 'zh-cn': string; en: string };
   path: string;
   component?: string;
   redirect?: string;
@@ -27,7 +27,7 @@ interface MenuSeed {
 const menuTree: MenuSeed[] = [
   {
     name: 'System',
-    title: '系统管理',
+    titles: { 'zh-cn': '系统管理', en: 'System' },
     path: '/system',
     icon: 'system',
     type: MENU_DIR,
@@ -35,7 +35,7 @@ const menuTree: MenuSeed[] = [
     children: [
       {
         name: 'User',
-        title: '用户管理',
+        titles: { 'zh-cn': '用户管理', en: 'User Management' },
         path: 'user',
         component: 'system/user/index',
         icon: 'el-icon-User',
@@ -44,7 +44,7 @@ const menuTree: MenuSeed[] = [
       },
       {
         name: 'Role',
-        title: '角色管理',
+        titles: { 'zh-cn': '角色管理', en: 'Role Management' },
         path: 'role',
         component: 'system/role/index',
         icon: 'role',
@@ -53,7 +53,7 @@ const menuTree: MenuSeed[] = [
       },
       {
         name: 'SysMenu',
-        title: '菜单管理',
+        titles: { 'zh-cn': '菜单管理', en: 'Menu Management' },
         path: 'menu',
         component: 'system/menu/index',
         icon: 'menu',
@@ -62,7 +62,7 @@ const menuTree: MenuSeed[] = [
       },
       {
         name: 'Permission',
-        title: '权限管理',
+        titles: { 'zh-cn': '权限管理', en: 'Permission Management' },
         path: 'permission',
         component: 'system/permission/index',
         icon: 'el-icon-Lock',
@@ -71,7 +71,7 @@ const menuTree: MenuSeed[] = [
       },
       {
         name: 'Dept',
-        title: '部门管理',
+        titles: { 'zh-cn': '部门管理', en: 'Department Management' },
         path: 'dept',
         component: 'system/dept/index',
         icon: 'tree',
@@ -82,7 +82,7 @@ const menuTree: MenuSeed[] = [
   },
   {
     name: 'App',
-    title: '应用设置',
+    titles: { 'zh-cn': '应用设置', en: 'App Settings' },
     path: '/app',
     icon: 'setting',
     type: MENU_DIR,
@@ -90,7 +90,7 @@ const menuTree: MenuSeed[] = [
     children: [
       {
         name: 'Dict',
-        title: '字典管理',
+        titles: { 'zh-cn': '字典管理', en: 'Dict Management' },
         path: 'dict',
         component: 'system/dict/index',
         icon: 'el-icon-Notebook',
@@ -99,7 +99,7 @@ const menuTree: MenuSeed[] = [
       },
       {
         name: 'Notice',
-        title: '通知管理',
+        titles: { 'zh-cn': '通知管理', en: 'Notice Management' },
         path: 'notice',
         component: 'system/notice/index',
         icon: 'el-icon-Bell',
@@ -108,7 +108,7 @@ const menuTree: MenuSeed[] = [
       },
       {
         name: 'Config',
-        title: '系统设置',
+        titles: { 'zh-cn': '系统设置', en: 'System Config' },
         path: 'config',
         component: 'system/config/index',
         icon: 'el-icon-Setting',
@@ -119,7 +119,7 @@ const menuTree: MenuSeed[] = [
   },
   {
     name: 'Log',
-    title: '日志中心',
+    titles: { 'zh-cn': '日志中心', en: 'Log Center' },
     path: '/log',
     icon: 'document',
     type: MENU_DIR,
@@ -127,7 +127,7 @@ const menuTree: MenuSeed[] = [
     children: [
       {
         name: 'LoginLog',
-        title: '登录日志',
+        titles: { 'zh-cn': '登录日志', en: 'Login Log' },
         path: 'login-log',
         component: 'system/login-log/index',
         icon: 'el-icon-Document',
@@ -136,7 +136,7 @@ const menuTree: MenuSeed[] = [
       },
       {
         name: 'OperationLog',
-        title: '操作日志',
+        titles: { 'zh-cn': '操作日志', en: 'Operation Log' },
         path: 'operation-log',
         component: 'system/operation-log/index',
         icon: 'el-icon-DocumentCopy',
@@ -740,7 +740,7 @@ async function createMenus(
     const baseData = {
       parentId: parentId ?? null,
       type: item.type,
-      title: item.title,
+      titles: item.titles,
       path: item.path,
       component: item.component ?? null,
       redirect: item.redirect ?? null,

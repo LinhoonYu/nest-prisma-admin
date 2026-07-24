@@ -23,14 +23,14 @@ export class MenuService {
    * 超级管理员返回全部菜单（支持查询过滤，供菜单管理页使用）；
    * 普通用户只返回其角色关联的启用菜单（供动态路由使用）。
    */
-  async tree(query: MenuQueryDto, userId: string) {
+  async tree(query: MenuQueryDto, userId: string, locale: string) {
     const isSuperAdmin = await this.userContextService.isSuperAdmin(userId);
 
     if (isSuperAdmin) {
       const list = await this.prisma.menu.findMany({
         where: {
           ...(query?.title && {
-            title: { contains: query.title, mode: 'insensitive' },
+            titles: { path: [locale], string_contains: query.title },
           }),
           ...(query?.type !== undefined && { type: query.type }),
           ...(query?.status !== undefined && { status: query.status }),
@@ -38,7 +38,12 @@ export class MenuService {
         orderBy: { sort: 'asc' },
         take: MAX_TREE_NODES,
       });
-      return buildTree(list, { sortKey: 'sort' });
+      return buildTree(
+        list.map((m) => this.resolveTitle(m, locale)),
+        {
+          sortKey: 'sort',
+        },
+      );
     }
 
     // 普通用户：按角色关联的菜单过滤，只返回启用的菜单
@@ -62,16 +67,25 @@ export class MenuService {
       take: MAX_TREE_NODES,
     });
 
-    return buildTree(list, { sortKey: 'sort' });
+    return buildTree(
+      list.map((m) => this.resolveTitle(m, locale)),
+      {
+        sortKey: 'sort',
+      },
+    );
   }
 
-  async detail(id: bigint) {
+  async detail(id: bigint, locale: string) {
     const menu = await this.prisma.menu.findUnique({ where: { id } });
     if (!menu) throw new ApiException(ApiCode.MenuNotFound);
-    return menu;
+    return this.resolveTitle(menu, locale);
   }
 
-  async create(dto: CreateMenuDto, operatorId: bigint) {
+  async create(dto: CreateMenuDto, operatorId: bigint, locale: string) {
+    if (!dto.titles?.['zh-cn']?.trim()) {
+      throw new ApiException(ApiCode.BadRequest);
+    }
+
     if (dto.parentId) {
       const parent = await this.prisma.menu.findUnique({
         where: { id: dto.parentId },
@@ -85,12 +99,18 @@ export class MenuService {
     });
     if (exists) throw new ApiException(ApiCode.BadRequest);
 
-    return this.prisma.menu.create({
+    const menu = await this.prisma.menu.create({
       data: { ...dto, createdBy: operatorId, updatedBy: operatorId },
     });
+    return this.resolveTitle(menu, locale);
   }
 
-  async update(id: bigint, dto: UpdateMenuDto, operatorId: bigint) {
+  async update(
+    id: bigint,
+    dto: UpdateMenuDto,
+    operatorId: bigint,
+    locale: string,
+  ) {
     const menu = await this.prisma.menu.findUnique({ where: { id } });
     if (!menu) throw new ApiException(ApiCode.MenuNotFound);
     if (menu.isSystem && dto.name !== undefined && dto.name !== menu.name) {
@@ -114,6 +134,10 @@ export class MenuService {
       }
     }
 
+    if (dto.titles !== undefined && !dto.titles['zh-cn']?.trim()) {
+      throw new ApiException(ApiCode.BadRequest);
+    }
+
     if (dto.name !== undefined && dto.name !== menu.name) {
       const exists = await this.prisma.menu.findFirst({
         where: { name: dto.name, NOT: { id } },
@@ -122,10 +146,11 @@ export class MenuService {
       if (exists) throw new ApiException(ApiCode.BadRequest);
     }
 
-    return this.prisma.menu.update({
+    const updated = await this.prisma.menu.update({
       where: { id },
       data: { ...dto, updatedBy: operatorId },
     });
+    return this.resolveTitle(updated, locale);
   }
 
   async remove(id: bigint, operatorId: bigint) {
@@ -154,6 +179,16 @@ export class MenuService {
         },
       }),
     ]);
+  }
+
+  private resolveTitle<T extends Record<string, unknown>>(
+    menu: T,
+    locale: string,
+  ): T & { title: string } {
+    const titles = menu.titles as Record<string, string> | null;
+    const title =
+      titles?.[locale] || titles?.['zh-cn'] || (menu.name as string);
+    return { ...menu, title };
   }
 
   /**

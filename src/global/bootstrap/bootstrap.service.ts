@@ -189,7 +189,7 @@ export class BootstrapService implements OnApplicationBootstrap {
           parentId: parentId ?? null,
           name: item.name,
           type: item.type,
-          title: item.title,
+          titles: item.titles,
           path: item.path,
           component: item.component ?? null,
           redirect: item.redirect ?? null,

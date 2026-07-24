@@ -181,7 +181,7 @@ model Menu {
   parentId     BigInt?   @map("parent_id")
   type         Int       @db.SmallInt
   name         String    @db.VarChar(128)
-  title        String    @db.VarChar(128)
+  titles       Json
   path         String?   @db.VarChar(255)
   component    String?   @db.VarChar(255)
   redirect     String?   @db.VarChar(255)

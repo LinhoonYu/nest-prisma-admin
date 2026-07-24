@@ -1,6 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 import { BigIntOrNull } from '~/common/utils/bigint';
 
@@ -26,10 +33,12 @@ export class CreateMenuDto {
   @MaxLength(128)
   name: string;
 
-  @ApiProperty({ description: '显示标题' })
-  @IsString()
-  @MaxLength(128)
-  title: string;
+  @ApiProperty({
+    description: '多语言标题',
+    example: { 'zh-cn': '系统管理', en: 'System' },
+  })
+  @IsObject()
+  titles: Record<string, string>;
 
   @ApiProperty({ description: '路由路径', required: false })
   @IsOptional()
@@ -133,11 +142,10 @@ export class UpdateMenuDto {
   @MaxLength(128)
   name?: string;
 
-  @ApiProperty({ description: '显示标题', required: false })
+  @ApiProperty({ description: '多语言标题', required: false })
   @IsOptional()
-  @IsString()
-  @MaxLength(128)
-  title?: string;
+  @IsObject()
+  titles?: Record<string, string>;
 
   @ApiProperty({ description: '路由路径', required: false })
   @IsOptional()

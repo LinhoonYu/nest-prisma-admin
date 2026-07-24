@@ -7,7 +7,9 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
+import { FastifyRequest } from 'fastify';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser } from '~/common/decorators/current-user.decorator';
@@ -25,22 +27,36 @@ export class MenuController {
 
   @Get()
   @ApiOperation({ summary: '菜单树' })
-  tree(@Query() query: MenuQueryDto, @CurrentUser('userId') userId: string) {
-    return this.menuService.tree(query, userId);
+  tree(
+    @Query() query: MenuQueryDto,
+    @CurrentUser('userId') userId: string,
+    @Req() req: FastifyRequest,
+  ) {
+    const raw = req.headers['accept-language'] as string | string[] | undefined;
+    const locale = (Array.isArray(raw) ? raw[0] : raw) || 'zh-cn';
+    return this.menuService.tree(query, userId, locale);
   }
 
   @Get(':id')
   @ApiOperation({ summary: '菜单详情' })
   @Perm(menuPermissions.READ)
-  detail(@Param() { id }: IdParam) {
-    return this.menuService.detail(BigInt(id));
+  detail(@Param() { id }: IdParam, @Req() req: FastifyRequest) {
+    const raw = req.headers['accept-language'] as string | string[] | undefined;
+    const locale = (Array.isArray(raw) ? raw[0] : raw) || 'zh-cn';
+    return this.menuService.detail(BigInt(id), locale);
   }
 
   @Post()
   @ApiOperation({ summary: '新增菜单' })
   @Perm(menuPermissions.CREATE)
-  create(@Body() dto: CreateMenuDto, @CurrentUser('userId') userId: string) {
-    return this.menuService.create(dto, BigInt(userId));
+  create(
+    @Body() dto: CreateMenuDto,
+    @CurrentUser('userId') userId: string,
+    @Req() req: FastifyRequest,
+  ) {
+    const raw = req.headers['accept-language'] as string | string[] | undefined;
+    const locale = (Array.isArray(raw) ? raw[0] : raw) || 'zh-cn';
+    return this.menuService.create(dto, BigInt(userId), locale);
   }
 
   @Put(':id')
@@ -50,8 +66,11 @@ export class MenuController {
     @Param() { id }: IdParam,
     @Body() dto: UpdateMenuDto,
     @CurrentUser('userId') userId: string,
+    @Req() req: FastifyRequest,
   ) {
-    return this.menuService.update(BigInt(id), dto, BigInt(userId));
+    const raw = req.headers['accept-language'] as string | string[] | undefined;
+    const locale = (Array.isArray(raw) ? raw[0] : raw) || 'zh-cn';
+    return this.menuService.update(BigInt(id), dto, BigInt(userId), locale);
   }
 
   @Delete(':id')
